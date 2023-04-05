@@ -70,6 +70,7 @@ process make_plink {
     plink2 \
     	--bfile plink \
     	--pca \
+		--allow-extra-chr \
     	--out plink
 	"""
 }
