@@ -8,7 +8,7 @@ exclude_chrs = ['chrX', 'chrY', 'chrM']
 
 def main(raw_tag_counts, regions_annotations):
     # Normalize by total counts & # of mappable base in element
-    normalized_tag_counts = raw_tag_counts / raw_tag_counts.sum(axis=0).values * 1e6
+    normalized_tag_counts = raw_tag_counts / raw_tag_counts.sum(axis=0)* 1e6
     normalized_tag_counts = normalized_tag_counts / regions_annotations["n_mappable"].values
 
     # GC content normalization
