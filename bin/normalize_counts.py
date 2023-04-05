@@ -57,10 +57,10 @@ if __name__ == '__main__':
     raw_tag_counts = np.load(sys.argv[2])
 
     with open(sys.argv[3]) as f:
+        pheno_indivs = f.readline().strip().split()
+    with open(sys.argv[4]) as f:
         genot_indivs = [line.rstrip() for line in f]
 
-    with open(sys.argv[4]) as f:
-        pheno_indivs = f.readline().strip().split()
     assert len(pheno_indivs) == len(genot_indivs)
 
     new_genot_order = [pheno_indivs.index(x) for x in genot_indivs]
