@@ -29,19 +29,19 @@ process gc_normalize_count_matrix {
 		path gc_content_file
 
 	output:
-		tuple path(name), path("${name}.tbi")
+		path name
 	
 	script:
-	name = "matrix_counts.norm.bed.gz"
+	name = "matrix_counts.norm.npy"
 	"""
 	bcftools query -l ${params.genotype_file} > samples.txt
 
 	python3 $moduleDir/bin/normalize_counts.py \
 		${gc_content_path} \
 		${params.count_matrix} \
+		${params.indivs_order} \
 		samples.txt \
-		| bgzip -c > ${name}
-	tabix -p bed ${name}
+		${name}
 	"""
 }
 

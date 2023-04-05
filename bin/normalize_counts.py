@@ -1,80 +1,74 @@
-#!/usr/bin/env python3
-
 import sys
-
 import pandas as pd
 import numpy as np
-import scipy as sp
-
 from sklearn.preprocessing import QuantileTransformer
 
-
-regions_annotation_filepath = sys.argv[1] #'/net/seq/data/projects/regulotyping/dnase/by_celltype_donor/h.CD3+/index/masterlist_DHSs_h.CD3+_nonovl_core_chunkIDs.gc-content.K76mappable.bed'
-raw_tag_counts_filepath =  sys.argv[2] #'/net/seq/data/projects/regulotyping/dnase/by_celltype_donor/h.CD3+/index/tag_counts/matrix_tagcounts.txt.gz'
-indivs_filepath = sys.argv[3] #'/tmp/samples.txt'
 exclude_chrs = ['chrX', 'chrY', 'chrM']
 
-raw_tag_counts = pd.read_csv(raw_tag_counts_filepath, header=0, index_col=0, delimiter="\t")
 
-regions_annotations = pd.read_csv(regions_annotation_filepath, header=None, delimiter="\t")
-regions_annotations.columns = ["chr", "start", "end", "n_bases", "n_gc", "percent_gc", "n_mappable", "region_id", "mid"]
-regions_annotations.set_index("region_id", inplace=True)
+def main(raw_tag_counts, regions_annotations):
+    # Normalize by total counts & # of mappable base in element
+    normalized_tag_counts = raw_tag_counts / raw_tag_counts.sum(axis=0).values * 1e6
+    normalized_tag_counts = normalized_tag_counts / regions_annotations["n_mappable"].values
 
-with open(indivs_filepath) as f:
-	indivs = [line.rstrip() for line in f]
-
-# Check whether files match
-assert raw_tag_counts.index.equals(regions_annotations.index), "Counts and annotation files do not match!"
-
-# Remove unwanted chromosomes
-filtered_regions = regions_annotations.index[~regions_annotations["chr"].isin(exclude_chrs)]
-raw_tag_counts = raw_tag_counts.loc[filtered_regions]
-regions_annotations = regions_annotations.loc[filtered_regions]
-
-# Get relevant samples (e.g., to match VCF file)
-#sample_cols = raw_tag_counts.columns.intersection(samples)
-sample_cols = raw_tag_counts.columns[raw_tag_counts.columns.str.split('>').str[0].isin(indivs)]
-raw_tag_counts = raw_tag_counts[sample_cols]
-
-# Normalize by total counts & # of mappable base in element
-
-normalized_tag_counts = raw_tag_counts.div(raw_tag_counts.sum(axis=0)) * 1e6
-normalized_tag_counts = normalized_tag_counts.div(regions_annotations["n_mappable"].values, axis=0)
-
-# GC content normalization
-
-normalized_tag_counts["gc_bin"] = pd.qcut(regions_annotations["percent_gc"], q=50, duplicates='drop').values
-
-gc_bins = normalized_tag_counts.groupby('gc_bin')
-gc_medians = normalized_tag_counts.groupby('gc_bin').transform(np.median)
-
-normalized_tag_counts = normalized_tag_counts[gc_medians.columns] - gc_medians
-
-# Mean and variance scaling
-
-row_means = normalized_tag_counts.mean(axis=1)
-row_sigmas = normalized_tag_counts.std(axis=1)
-normalized_tag_counts = normalized_tag_counts.subtract(row_means, axis=0).div(row_sigmas, axis=0)
+    # GC content normalization
+    n_quantiles = 50
+    gc_bins = pd.qcut(regions_annotations["percent_gc"], q=n_quantiles, duplicates='drop', labels=False)
 
 
-# Quantile normalization
+    ## To optimize, should work decent for small n_quantiles
+    for gc_bin in np.unique(gc_bins):
+        indexes = gc_bins == gc_bin
+        normalized_subset = normalized_tag_counts[indexes]
+        normalized_tag_counts[indexes] = normalized_subset - np.median(normalized_subset)
 
-qt = QuantileTransformer(n_quantiles=1000, random_state=0, output_distribution='normal')
+    # Mean and variance scaling
+    row_means = np.mean(normalized_tag_counts, axis=1)
+    row_sigmas = np.std(normalized_tag_counts, axis=1)
+    normalized_tag_counts = (normalized_tag_counts - row_means) / row_sigmas
+    # Quantile normalization
 
-normalized_tag_counts = pd.DataFrame(qt.fit_transform(normalized_tag_counts), 
-                                     index=normalized_tag_counts.index, 
-                                     columns=normalized_tag_counts.columns)
+    qt = QuantileTransformer(n_quantiles=1000, random_state=0, output_distribution='normal')
 
-# Drop rows that are all NAs
-normalized_tag_counts.dropna(axis='rows', inplace=True)
+    normalized_tag_counts = qt.fit_transform(normalized_tag_counts)
 
-df = regions_annotations.reset_index()[["chr", "mid", "end", "region_id"]].join(normalized_tag_counts, on="region_id", how="right")
-df.sort_values(by = ["chr", "mid"], inplace=True)
+    # Drop rows that are all NAs
+    normalized_tag_counts = normalized_tag_counts[~np.ma.fix_invalid(normalized_tag_counts).mask.all(axis=1)]
+    #normalized_tag_counts.dropna(axis='rows', inplace=True)
+    return normalized_tag_counts
+    ### do I really need it?
+    
+    #df = regions_annotations.reset_index()[["#chr", "mid", "end", "region_id"]].join(normalized_tag_counts, on="region_id", how="right")
+    #df.sort_values(by = ["chr", "mid"], inplace=True)
 
-# Rename columns for compatibility with TensorQTL
-df.rename(columns={"chr": "#chr", "mid": "start", "region_id": "phenotype_id"}, inplace=True)
-df["end"] = df["start"] + 1
+    # Rename columns for compatibility with TensorQTL
+    #df.rename(columns={"chr": "#chr", "mid": "start", "region_id": "phenotype_id"}, inplace=True)
+    #df["end"] = df["start"] + 1
 
 
-df.to_csv(sys.stdout, header=True, index=False, sep="\t", float_format="%0.4f")
+    #df.to_csv(sys.stdout, header=True, index=False, sep="\t", float_format="%0.4f")
 
+
+if __name__ == '__main__':
+    regions_annotations = pd.read_table(sys.argv[1], header=None,
+            names=["#chr", "start", "end", "n_bases", "n_gc", "percent_gc", "n_mappable", "region_id", "mid"])
+    regions_annotations.set_index("region_id", inplace=True)
+
+    raw_tag_counts = np.load(sys.argv[2])
+
+    with open(sys.argv[3]) as f:
+        genot_indivs = [line.rstrip() for line in f]
+
+    with open(sys.argv[4]) as f:
+        pheno_indivs = f.readline().strip().split()
+    assert len(pheno_indivs) == len(genot_indivs)
+
+    new_genot_order = [pheno_indivs.index(x) for x in genot_indivs]
+    # Check whether files match
+    assert raw_tag_counts.shape[0] == len(regions_annotations.index), "Counts and annotation files do not match!"
+    index_chrs = set(regions_annotations['#chr'].unique())
+    assert all([x not in index_chrs for x in exclude_chrs])
+     # Get relevant samples (e.g., to match VCF file)
+    raw_tag_counts = raw_tag_counts[:, new_genot_order]
+    normalized_tag_counts = main(raw_tag_counts, regions_annotations)
+    np.save(sys.argv[5], normalized_tag_counts)
