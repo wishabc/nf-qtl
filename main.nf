@@ -54,13 +54,13 @@ process make_plink {
 	conda params.conda
 
 	output:
-	path "plink.*"
+		path "plink.*"
 
 	script:
 	"""
 	plink2 --make-bed \
     	--output-chr chrM \
-    	--vcf genotypes.vcf.gz \
+    	--vcf ${params.genotype_file} \
         --keep-allele-order \
     	--snps-only \
     	--out plink
