@@ -39,7 +39,7 @@ process gc_normalize_count_matrix {
 	bcftools query -l ${params.genotype_file} > samples.txt
 
 	python3 $moduleDir/bin/normalize_counts.py \
-		${gc_content_path} \
+		${gc_content_file} \
 		${params.count_matrix} \
 		${params.indivs_order} \
 		samples.txt \
