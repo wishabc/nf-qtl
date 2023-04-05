@@ -9,7 +9,7 @@ exclude_chrs = ['chrX', 'chrY', 'chrM']
 def main(raw_tag_counts, regions_annotations):
     # Normalize by total counts & # of mappable base in element
     normalized_tag_counts = raw_tag_counts / raw_tag_counts.sum(axis=0)* 1e6
-    normalized_tag_counts = normalized_tag_counts / regions_annotations["n_mappable"].values
+    normalized_tag_counts = normalized_tag_counts / regions_annotations["n_mappable"].values[:, None]
 
     # GC content normalization
     n_quantiles = 50
@@ -19,8 +19,8 @@ def main(raw_tag_counts, regions_annotations):
     ## To optimize, should work decent for small n_quantiles
     for gc_bin in np.unique(gc_bins):
         indexes = gc_bins == gc_bin
-        normalized_subset = normalized_tag_counts[indexes]
-        normalized_tag_counts[indexes] = normalized_subset - np.median(normalized_subset)
+        normalized_subset = normalized_tag_counts[indexes, :]
+        normalized_tag_counts[indexes, :] = normalized_subset - np.median(normalized_subset, axis=-1)
 
     # Mean and variance scaling
     row_means = np.mean(normalized_tag_counts, axis=1)
