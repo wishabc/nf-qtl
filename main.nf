@@ -62,6 +62,7 @@ process make_plink {
     	--output-chr chrM \
     	--vcf ${params.genotype_file} \
         --keep-allele-order \
+		--allow-extra-chr \
     	--snps-only \
     	--out plink
 
