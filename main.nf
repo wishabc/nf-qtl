@@ -52,7 +52,7 @@ process make_plink {
 	conda params.conda
 
 	output:
-	file "plink.*" into PLINK_FILES
+	path "plink.*"
 
 	script:
 	"""
@@ -101,10 +101,14 @@ process create_genome_chunks {
 	"""
 }
 
-workflow {
+workflow caqtlCalling {
 	count_matrix = extract_gc_content() | gc_normalize_count_matrix
 	plink_files = make_plink()
 	create_genome_chunks(count_matrix)
+}
+
+workflow {
+	caqtlCalling()
 }
 
 // process qtl_by_region {
