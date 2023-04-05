@@ -6,6 +6,7 @@ params.conda = "/home/sabramov/miniconda3/envs/babachi"
 
 process extract_gc_content {
 	conda params.conda
+	memory '16G'
 	publishDir params.outdir
 
 	output:
