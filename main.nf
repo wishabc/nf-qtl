@@ -1,6 +1,8 @@
 #!/usr/bin/env nextflow
 
-params.conda = '/home/jvierstra/.local/miniconda3/envs/py3.8_tensorqtl'
+//params.conda = '/home/jvierstra/.local/miniconda3/envs/py3.8_tensorqtl'
+params.conda = "/home/sabramov/miniconda3/envs/babachi"
+
 
 process extract_gc_content {
 	conda params.conda
