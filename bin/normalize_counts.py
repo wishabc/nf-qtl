@@ -23,8 +23,8 @@ def main(raw_tag_counts, regions_annotations):
         normalized_tag_counts[indexes, :] = normalized_subset - np.median(normalized_subset, axis=0)
 
     # Mean and variance scaling
-    row_means = np.mean(normalized_tag_counts, axis=1)[:, None]
-    row_sigmas = np.std(normalized_tag_counts, axis=1)[:, None]
+    row_means = np.nanmean(normalized_tag_counts, axis=1)[:, None]
+    row_sigmas = np.nanstd(normalized_tag_counts, axis=1)[:, None]
     normalized_tag_counts = (normalized_tag_counts - row_means) / row_sigmas
     # Quantile normalization
 
@@ -33,7 +33,6 @@ def main(raw_tag_counts, regions_annotations):
     normalized_tag_counts = qt.fit_transform(normalized_tag_counts)
 
     # Drop rows that are all NAs
-    normalized_tag_counts = normalized_tag_counts[~np.ma.fix_invalid(normalized_tag_counts).mask.all(axis=1)]
     #normalized_tag_counts.dropna(axis='rows', inplace=True)
     return normalized_tag_counts
     ### do I really need it?
