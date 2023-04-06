@@ -76,15 +76,12 @@ process create_genome_chunks {
 	memory '4G'
 	conda params.conda
 
-	input:
-		path count_matrix
-
 	output:
 		stdout
 
 	script:
 	"""
-	zcat ${count_matrix} | cut -f1-3 | sort-bed - > regions.bed
+	cat ${params.index_file} | cut -f1-3 | sort-bed - > regions.bed
 
 	cat ${params.genome_chrom_sizes} \
   	| awk -v step=${params.chunksize} -v OFS="\t" \
@@ -104,7 +101,7 @@ process create_genome_chunks {
 workflow caqtlCalling {
 	count_matrix = extract_gc_content() | gc_normalize_count_matrix
 	plink_files = make_plink()
-	create_genome_chunks(count_matrix)
+	create_genome_chunks()
 }
 
 workflow {
