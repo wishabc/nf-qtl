@@ -56,19 +56,19 @@ if __name__ == '__main__':
 
     raw_tag_counts = np.load(sys.argv[2])
 
-    with open(sys.argv[3]) as f:
-        pheno_indivs = f.readline().strip().split()
-    with open(sys.argv[4]) as f:
-        genot_indivs = [line.rstrip() for line in f]
+    # with open(sys.argv[3]) as f:
+    #     pheno_indivs = f.readline().strip().split()
+    # with open(sys.argv[4]) as f:
+    #     genot_indivs = [line.rstrip() for line in f]
 
-    assert len(pheno_indivs) == len(genot_indivs)
+    # assert len(pheno_indivs) == len(genot_indivs)
 
-    new_genot_order = [pheno_indivs.index(x) for x in genot_indivs]
+    # new_genot_order = [pheno_indivs.index(x) for x in genot_indivs]
     # Check whether files match
     assert raw_tag_counts.shape[0] == len(regions_annotations.index), "Counts and annotation files do not match!"
     index_chrs = set(regions_annotations['#chr'].unique())
     assert all([x not in index_chrs for x in exclude_chrs])
      # Get relevant samples (e.g., to match VCF file)
-    raw_tag_counts = raw_tag_counts[:, new_genot_order]
+    # raw_tag_counts = raw_tag_counts[:, new_genot_order]
     normalized_tag_counts = main(raw_tag_counts, regions_annotations)
-    np.save(sys.argv[5], normalized_tag_counts)
+    np.save(sys.argv[3], normalized_tag_counts)
