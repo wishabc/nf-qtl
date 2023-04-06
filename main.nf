@@ -26,7 +26,6 @@ process extract_gc_content {
 process gc_normalize_count_matrix {
 	conda params.conda
 	publishDir params.outdir
-	scratch true
 
 	input:
 		path gc_content_file
