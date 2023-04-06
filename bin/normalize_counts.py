@@ -23,8 +23,8 @@ def main(raw_tag_counts, regions_annotations):
         normalized_tag_counts[indexes, :] = normalized_subset - np.median(normalized_subset, axis=0)
 
     # Mean and variance scaling
-    row_means = np.mean(normalized_tag_counts, axis=1)
-    row_sigmas = np.std(normalized_tag_counts, axis=1)
+    row_means = np.mean(normalized_tag_counts, axis=1)[:, None]
+    row_sigmas = np.std(normalized_tag_counts, axis=1)[:, None]
     normalized_tag_counts = (normalized_tag_counts - row_means) / row_sigmas
     # Quantile normalization
 
