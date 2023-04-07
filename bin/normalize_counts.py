@@ -20,7 +20,7 @@ def main(raw_tag_counts, regions_annotations):
     for gc_bin in np.unique(gc_bins):
         indexes = gc_bins == gc_bin
         normalized_subset = normalized_tag_counts[indexes, :]
-        normalized_tag_counts[indexes, :] = normalized_subset - np.median(normalized_subset, axis=0)
+        normalized_tag_counts[indexes, :] = normalized_subset - np.nanmedian(normalized_subset, axis=0)
 
     # Mean and variance scaling
     row_means = np.nanmean(normalized_tag_counts, axis=1)[:, None]
