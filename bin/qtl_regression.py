@@ -77,7 +77,7 @@ def process_dhs(phenotype_matrix, genotype_matrix, samples_per_snp, residualizer
 
 def main(phenotype_matrix, snps_per_dhs,
     genotype_matrix, valid_samples, residualizers,
-    snps_meta, dhs_meta):
+    snps_data, dhs_data):
     # optionally do in parallel
     result = []
     for dhs_idx, snps_indices in enumerate(snps_per_dhs):
@@ -86,13 +86,14 @@ def main(phenotype_matrix, snps_per_dhs,
         genotypes = genotype_matrix[snps_indices, :]
         samples_per_snp = valid_samples[snps_indices, :]
         dhs_residualizers = residualizers[snps_indices]
-        dhs_data = dhs_meta.iloc[dhs_idx]
+        current_dhs_data = dhs_data.iloc[dhs_idx]
+        current_snps_data = snps_data.iloc[snps_indices]
         stats = process_dhs(phenotype_matrix=phenotype,
             genotype_matrix=genotypes,
             samples_per_snp=samples_per_snp, 
             residualizer=dhs_residualizers,
-            snps_meta=snps_meta.iloc[snps_indices],
-            dhs_data=dhs_data
+            snps_data=current_snps_data,
+            dhs_data=current_dhs_data
             )
         result.extend(stats)
 
@@ -231,15 +232,15 @@ if __name__ == '__main__':
     residualizers = np.array([Residualizer(sample_pcs[snp_samples_idx, :]) 
         for snp_samples_idx in valid_samples]) # len(SNPs), add covariates here
 
-    print(f"Preprocessing finished in {t - time.perf_counter()}")
+    print(f"Preprocessing finished in {time.perf_counter() - t}s")
     ## ------------ Run regressions -----------
     result = main(phenotype_matrix=phenotype_data, 
         snps_per_dhs=snps_per_dhs,
         genotype_matrix=bed,
         valid_samples=valid_samples,
         residualizers=residualizers,
-        snps_meta=bim[['variant_id', 'pos']],
-        dhs_meta=masterlist[["#chr", "start", "end", "chunk_id", "summit"]]
+        snps_data=bim[['variant_id', 'pos']],
+        dhs_data=masterlist[["#chr", "start", "end", "chunk_id", "summit"]]
     )
     print(f"Processing finished in {t - time.perf_counter()}")
     result.to_csv(args.outpath, sep='\t', index=False)
