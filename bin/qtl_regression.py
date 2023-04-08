@@ -204,7 +204,7 @@ if __name__ == '__main__':
     bed = bed[snps_index, :].compute()
     
     # filter SNPs with homref, homalt and hets present
-    testable_snps = find_testable_snps(bed, snps=3, gens=3)
+    testable_snps = find_testable_snps(bed, min_snps=3, gens=3)
     bed = bed[testable_snps, :] # [SNPs x indivs]
 
     bim = bim.iloc[snps_index & testable_snps].reset_index(drop=True)
