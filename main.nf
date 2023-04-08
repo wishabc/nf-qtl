@@ -103,8 +103,7 @@ process qtl_regression {
 	conda params.conda
 
 	input:
-		val genome_chunk
-		path normalized_matrix
+		tuple val(genome_chunk), path(normalized_matrix)
 		path plink_files 	// Files are named as plink.<suffix>
 
 	output:
@@ -142,7 +141,7 @@ workflow test {
 	plink_files = Channel.of("/net/seq/data2/projects/sabramov/ENCODE4/caqtl-analysis/output/plink_files/plink*")
 		.map(it -> file(it)).collect(sort: true, flat: true)
 
-	qtl_regression(genome_chunks, count_matrix, plink_files) | collectFile(
+	qtl_regression(genome_chunks.combine(count_matrix), plink_files) | collectFile(
 		name: "caqtl_results.tsv",
 		storeDir: params.outdir,
 		skip: 1,
