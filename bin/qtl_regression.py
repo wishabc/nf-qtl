@@ -8,6 +8,19 @@ import h5py
 import time
 from tqdm import tqdm
 
+
+header = [
+        "#chr", "start", "end", "chunk_id", "summit",
+        'variant_id', 'distance_to_summit',
+        'n_samples', 'n_cell_types',
+        'n_hom_ref', 'n_het', 'n_hom_alt',
+        'f', 'f_pval',
+        'b', 'b_se',
+        'r2',
+        'sse', 'ssr', 'df_model',
+    ]
+
+
 class Residualizer:
     def __init__(self, C):
         # center and orthogonalize
@@ -97,16 +110,7 @@ def main(phenotype_matrix, snps_per_dhs,
             )
         result.extend(stats)
 
-    return pd.DataFrame(result, columns=[
-        "#chr", "start", "end", "chunk_id", "summit",
-        'variant_id', 'distance_to_summit',
-        'n_samples', 'n_cell_types',
-        'n_hom_ref', 'n_het', 'n_hom_alt',
-        'f', 'f_pval',
-        'b', 'b_se',
-        'r2',
-        'sse', 'ssr', 'df_model',
-    ])
+    return pd.DataFrame(result, columns=header)
         
 def find_testable_snps(gt_matrix, min_snps, gens=2):
     # todo: prettify
@@ -202,6 +206,12 @@ if __name__ == '__main__':
 
     bim = bim.iloc[snps_index].iloc[testable_snps].reset_index(drop=True)
     # use eval instead?
+    if len(bim.index) == 0:
+        print(f'No SNPs passing filters found for {args.chunk_id}, exiting')
+        with open(args.outpath, 'w') as f:
+            f.write('\t'.join(header))
+        exit(0)
+
     bim['variant_id'] = bim.apply(
         lambda row: f"{row['chrom']}_{row['pos']}_{row['snp']}_{row['a0']}_{row['a1']}",
         axis=1
