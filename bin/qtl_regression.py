@@ -185,7 +185,7 @@ if __name__ == '__main__':
     masterlist = masterlist.iloc[dhs_chunk_idx]
 
     with h5py.File(args.phenotype_matrix, 'r') as f:
-        phenotype_data = f['normalized_counts'][dhs_chunk_idx, :] # [DHS x samples]
+        phenotype_data = f['normalized_counts'][np.where(dhs_chunk_idx), :] # [DHS x samples]
     assert (~np.isfinite(phenotype_data)).sum() == 0
     
     # read samples order in the normalized matrix
