@@ -6,7 +6,7 @@ from scipy import stats as st
 import statsmodels.api as sm
 import h5py
 import time
-
+from tqdm import tqdm
 
 class Residualizer:
     def __init__(self, C):
@@ -56,7 +56,7 @@ def process_snp(snp_phenotypes, snp_genotypes, residualizer):
 def process_dhs(phenotype_matrix, genotype_matrix, samples_per_snp, dhs_residualizers, snps_data, dhs_data):
     result = []
     dhs_data_as_list = dhs_data.to_list()
-    for snp_index, genotypes in enumerate(genotype_matrix):
+    for snp_index, genotypes in enumerate(tqdm(genotype_matrix, leave=False)):
         # genotypes = genotype_matrix[snp_index, :]
         #snp_used_samples_index = (genotypes != -1) & (~np.isnan(phenotypes))
         valid_samples = samples_per_snp[snp_index]
@@ -80,7 +80,7 @@ def main(phenotype_matrix, snps_per_dhs,
     snps_data, dhs_data):
     # optionally do in parallel
     result = []
-    for dhs_idx, snps_indices in enumerate(snps_per_dhs):
+    for dhs_idx, snps_indices in enumerate(tqdm(snps_per_dhs)):
         # subsetting matrices
         phenotype = phenotype_matrix[dhs_idx, :].squeeze()
         genotypes = genotype_matrix[snps_indices, :]
