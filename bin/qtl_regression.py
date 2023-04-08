@@ -98,7 +98,7 @@ def main(phenotype_matrix, snps_per_dhs,
         result.extend(stats)
 
     return pd.DataFrame(result, columns=[
-        "#chr", "start", "end", "chunk_id",
+        "#chr", "start", "end", "chunk_id", "summit",
         'variant_id', 'distance_to_summit',
         'n_samples', 'n_cell_types',
         'n_hom_ref', 'n_het', 'n_hom_alt',
