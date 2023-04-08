@@ -181,7 +181,6 @@ if __name__ == '__main__':
         & (masterlist['end'] < end)).to_numpy().astype(bool)
     
     masterlist = masterlist.iloc[dhs_chunk_idx]
-    print(dhs_chunk_idx)
 
     with h5py.File(args.phenotype_matrix, 'r') as f:
         phenotype_data = f['normalized_counts'][dhs_chunk_idx, :] # [DHS x samples]
@@ -193,7 +192,7 @@ if __name__ == '__main__':
 
     ## ---- Read genotype data in a bigger window ------
     window = 500_000
-    bed, bim, fam = read_plink(args.plink_prefix)
+    bim, fam, bed = read_plink(args.plink_prefix)
     bed = 2 - bed
     bed[np.isnan(bed)] = -1
     bed = bed.astype(np.int8, copy=False)
