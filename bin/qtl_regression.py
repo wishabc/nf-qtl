@@ -53,7 +53,7 @@ def process_snp(snp_phenotypes, snp_genotypes, residualizer):
     ]
 
 
-def process_dhs(phenotype_matrix, genotype_matrix, samples_per_snp, residualizer, snps_data, dhs_data):
+def process_dhs(phenotype_matrix, genotype_matrix, samples_per_snp, dhs_residualizers, snps_data, dhs_data):
     result = []
     dhs_data_as_list = dhs_data.to_list()
     for snp_index, genotypes in enumerate(genotype_matrix):
@@ -62,7 +62,7 @@ def process_dhs(phenotype_matrix, genotype_matrix, samples_per_snp, residualizer
         valid_samples = samples_per_snp[snp_index]
         snp_genotypes = genotypes[valid_samples].reshape(-1, 1)
         snp_phenotypes = phenotype_matrix[valid_samples].reshape(-1, 1)
-        
+        residualizer = dhs_residualizers[snp_index]
         snp_stats = process_snp(snp_phenotypes=snp_phenotypes, 
             snp_genotypes=snp_genotypes, residualizer=residualizer)
         snp_id, snp_pos = snps_data.iloc[snp_index][['variant_id', 'pos']]
@@ -242,5 +242,5 @@ if __name__ == '__main__':
         snps_data=bim[['variant_id', 'pos']],
         dhs_data=masterlist[["#chr", "start", "end", "chunk_id", "summit"]]
     )
-    print(f"Processing finished in {t - time.perf_counter()}")
+    print(f"Processing finished in {time.perf_counter() - t}")
     result.to_csv(args.outpath, sep='\t', index=False)
