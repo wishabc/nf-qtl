@@ -138,8 +138,9 @@ def find_snps_per_dhs(phenotype_df, variant_df, window):
 
     if len(invalid_phens_indices) != 0:
         print(f'** dropping {len(invalid_phens_indices)} phenotypes without variants in cis-window')
-        
-    return result, np.array(invalid_phens_indices)
+    invalid_phens_mask = np.zeros(phenotype_len, dtype=bool)
+    invalid_phens_mask[invalid_phens_indices] = True
+    return result, invalid_phens_mask
 
 
 def preprocess_data():
@@ -211,7 +212,7 @@ if __name__ == '__main__':
     snps_per_dhs, invalid_phens = find_snps_per_dhs(masterlist, bim, window=window) # [DHS x SNPs] boolean matrix, [DHS] boolean vector
     phenotype_data = phenotype_data[~invalid_phens, :]
     snps_per_dhs = snps_per_dhs[~invalid_phens, :]
-    masterlist = snps_per_dhs.iloc[~invalid_phens, :]
+    masterlist = snps_per_dhs.iloc[~invalid_phens, :].reset_index(drop=True)
 
     ## --------- Read indiv to sample correspondence ----------
     indiv2samples_idx = pd.read_table(args.metadata)[['ag_id', 'indiv_id']].merge(
