@@ -116,15 +116,6 @@ def find_testable_snps(gt_matrix, min_snps, gens=2):
         + (het >= min_snps).astype(np.int8) 
         + (homalt >= min_snps).astype(np.int8)) >= gens
 
-def get_region(self, region_str, sample_ids=None, impute=False, verbose=False, dtype=np.int8):
-    """Get genotypes for a region defined by 'chr:start-end' or 'chr'"""
-    ix, pos_s = self.get_region_index(region_str, return_pos=True)
-    g = self.bed[ix, :].compute().astype(dtype)
-    if sample_ids is not None:
-        ix = [self.sample_ids.index(i) for i in sample_ids]
-        g = g[:, ix]
-    return g, pos_s
-
 
 def find_snps_per_dhs(phenotype_df, variant_df, window):
     phenotype_len = len(phenotype_df.index)
@@ -205,9 +196,10 @@ if __name__ == '__main__':
     
     # filter SNPs with homref, homalt and hets present
     testable_snps = find_testable_snps(bed, min_snps=3, gens=3)
+    print('Testable SNPs', testable_snps.shape)
     bed = bed[testable_snps, :] # [SNPs x indivs]
 
-    bim = bim.iloc[snps_index & testable_snps].reset_index(drop=True)
+    bim = bim.iloc[snps_index * testable_snps].reset_index(drop=True)
     # use eval instead?
     bim['variant_id'] = bim.apply(
         lambda row: f"{row['chrom']}_{row['pos']}_{row['snp']}_{row['a0']}_{row['a1']}",
