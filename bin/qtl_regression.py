@@ -91,7 +91,7 @@ def main(phenotype_matrix, snps_per_dhs,
         stats = process_dhs(phenotype_matrix=phenotype,
             genotype_matrix=genotypes,
             samples_per_snp=samples_per_snp, 
-            residualizer=dhs_residualizers,
+            dhs_residualizers=dhs_residualizers,
             snps_data=current_snps_data,
             dhs_data=current_dhs_data
             )
