@@ -132,6 +132,7 @@ def find_snps_per_dhs(phenotype_df, variant_df, window):
         upper_bound = np.searchsorted(snp_positions, row['end'] + window, side='right')
         if lower_bound != upper_bound:
             snps_indices = chr_df['index'].to_numpy()[[lower_bound, upper_bound - 1]] # returns one just before
+            print(snps_indices.shape)
             result[phen_idx, snps_indices] = 1
         else:
             invalid_phens_indices.append(phen_idx)  
@@ -174,7 +175,7 @@ if __name__ == '__main__':
         & (masterlist['start'] >= start) 
         & (masterlist['end'] < end)).to_numpy().astype(bool)
     
-    masterlist = masterlist.iloc[dhs_chunk_idx]
+    masterlist = masterlist.iloc[dhs_chunk_idx].reset_index(drop=True)
 
     with h5py.File(args.phenotype_matrix, 'r') as f:
         phenotype_data = f['normalized_counts'][dhs_chunk_idx, :] # [DHS x samples]
