@@ -178,14 +178,15 @@ if __name__ == '__main__':
         "n_peaks", "dhs_width", "summit", "start_core", "end_core", "avg_score"],
         header=None)
     non_nan_mask = np.loadtxt(args.mask, dtype=bool)
+    masterlist = masterlist.iloc[non_nan_mask]
     dhs_chunk_idx = ((masterlist['#chr'] == chrom) 
         & (masterlist['start'] >= start) 
-        & (masterlist['end'] < end)).to_numpy().astype(bool) * non_nan_mask
-
+        & (masterlist['end'] < end)).to_numpy().astype(bool)
+    
     masterlist = masterlist.iloc[dhs_chunk_idx]
 
     with h5py.File(args.phenotype_matrix, 'r') as f:
-        phenotype_data = f['normalized_counts'][np.where(dhs_chunk_idx), :] # [DHS x samples]
+        phenotype_data = f['normalized_counts'][dhs_chunk_idx, :] # [DHS x samples]
     assert (~np.isfinite(phenotype_data)).sum() == 0
     
     # read samples order in the normalized matrix
