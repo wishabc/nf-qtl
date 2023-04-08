@@ -223,7 +223,7 @@ if __name__ == '__main__':
     
     ## --------- Read covariates data ---------
     covariates = pd.read_table(f'{args.plink_prefix}.eigenvec')
-    assert covariates['iid'].tolist() == fam['indiv_id'].tolist()
+    assert covariates['IID'].tolist() == fam['indiv_id'].tolist()
 
     sample_pcs = covariates.loc[indiv2samples_idx].iloc[:, 2:].to_numpy()
     # calc residualizer for each variant
