@@ -103,7 +103,7 @@ process qtl_regression {
 	conda params.conda
 
 	input:
-		each genome_chunk
+		val genome_chunk
 		path normalized_matrix
 		path plink_files 	// Files are named as plink.<suffix>
 
