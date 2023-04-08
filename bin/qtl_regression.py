@@ -200,7 +200,7 @@ if __name__ == '__main__':
     bed[np.isnan(bed)] = -1
     bed = bed.astype(np.int8, copy=False)
     # pos is 1-based, start is 0-based
-    snps_index = bim.eval(f'chrom == {chrom} & pos >= {start + window + 1} & pos < {end + window}').to_numpy().astype(bool)
+    snps_index = bim.eval(f'chrom == "{chrom}" & pos >= {start + window + 1} & pos < {end + window}').to_numpy().astype(bool)
     bed = bed[snps_index, :].compute()
     
     # filter SNPs with homref, homalt and hets present
