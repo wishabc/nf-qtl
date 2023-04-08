@@ -106,7 +106,7 @@ process qtl_regression {
 		path plink_files 	// Files are named as plink.<suffix>
 
 	output:
-		tuple val(chunk_id), path(name)
+		tuple val(genome_chunk), path(name)
 
 	script:
 	name = "${genome_chunk}.qtl_results.tsv"
