@@ -2,7 +2,7 @@ import sys
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import QuantileTransformer
-
+import h5py
 exclude_chrs = ['chrX', 'chrY', 'chrM']
 
 
@@ -34,7 +34,8 @@ def main(raw_tag_counts, regions_annotations):
 
     # Drop rows that are all NAs
     #normalized_tag_counts.dropna(axis='rows', inplace=True)
-    return normalized_tag_counts
+    nan_mask = ~np.isfinite(normalized_tag_counts)
+    return normalized_tag_counts[nan_mask], nan_mask
     ### do I really need it?
     
     #df = regions_annotations.reset_index()[["#chr", "mid", "end", "region_id"]].join(normalized_tag_counts, on="region_id", how="right")
@@ -69,5 +70,9 @@ if __name__ == '__main__':
     assert all([x not in index_chrs for x in exclude_chrs])
      # Get relevant samples (e.g., to match VCF file)
     # raw_tag_counts = raw_tag_counts[:, new_genot_order]
-    normalized_tag_counts = main(raw_tag_counts, regions_annotations)
-    np.save(sys.argv[3], normalized_tag_counts)
+    normalized_tag_counts, nan_mask = main(raw_tag_counts, regions_annotations)
+    prefix = sys.argv[3]
+
+    with h5py.File(f'{prefix}.hdf5', 'w') as f:
+        f['normalized_counts'] = normalized_tag_counts
+    np.savetxt(f'{prefix}.mask.txt', nan_mask, fmt="%5i")

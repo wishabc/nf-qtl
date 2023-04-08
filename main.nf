@@ -31,12 +31,12 @@ process gc_normalize_count_matrix {
 		path gc_content_file
 
 	output:
-		path name
+		path "${prefix}.hdf5", emit: hdf5
+		path "${prefix}.mask.txt", emit: mask
 	
 	script:
-	name = "matrix_counts.norm.npy"
+	prefix = "matrix_counts.norm"
 	"""
-	#123
 	python3 $moduleDir/bin/normalize_counts.py \
 		${gc_content_file} \
 		${params.count_matrix} \
@@ -99,10 +99,35 @@ process create_genome_chunks {
 	"""
 }
 
+process qtl_regression {
+	conda params.conda
+
+	input:
+		each genome_chunk
+		path normalized_matrix
+		path plink_files 	// Files are named as plink.<suffix>
+
+	output:
+		tuple val(chunk_id), path(name)
+
+	script:
+	name = "${chunk_id}.qtl_results.tsv"
+	plink_prefix = "${plink_files[0].simpleName}" // Assumes that prefix of all the files is the same
+	"""
+	python3 $moduleDir/bin/qtl_regression.py '${chunk_id}' \
+		${normalized_matrix} \
+		${params.index_file} \
+		${params.indivs_order} \
+		${plink_prefix} \
+		${name}
+	"""
+}
+
 workflow caqtlCalling {
 	count_matrix = extract_gc_content() | gc_normalize_count_matrix
 	plink_files = make_plink()
-	create_genome_chunks()
+	genome_chunks = create_genome_chunks() | flatMap(n -> n.split())
+	// qtl_regression(genome_chunks, count_matrix.hdf5, plink_files)
 }
 
 workflow {
