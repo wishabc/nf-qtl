@@ -144,9 +144,9 @@ workflow test {
 	plink_files = Channel.of("/net/seq/data2/projects/sabramov/ENCODE4/caqtl-analysis/output/plink/plink*")
 		.map(it -> file(it)).collect(sort: true, flat: true)
 
-	qtl_regression(genome_chunks, count_matrix, plink_files) | collectFile(
+	qtl_regression(genome_chunks, count_matrix, plink_files) | map(it -> it[1]) | collectFile(
 		name: "caqtl_results.tsv",
-		storeDir: params.outdir,
+		storeDir: "${params.outdir}",
 		skip: 1,
 		keepHeader: true
 	)

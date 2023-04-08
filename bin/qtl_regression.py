@@ -211,7 +211,6 @@ if __name__ == '__main__':
         with open(args.outpath, 'w') as f:
             f.write('\t'.join(header))
         exit(0)
-
     bim['variant_id'] = bim.apply(
         lambda row: f"{row['chrom']}_{row['pos']}_{row['snp']}_{row['a0']}_{row['a1']}",
         axis=1
