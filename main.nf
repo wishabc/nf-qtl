@@ -114,7 +114,9 @@ process qtl_regression {
 	name = "${chunk_id}.qtl_results.tsv"
 	plink_prefix = "${plink_files[0].simpleName}" // Assumes that prefix of all the files is the same and doesn't contain .
 	"""
-	python3 $moduleDir/bin/qtl_regression.py '${chunk_id}' \
+	python3 $moduleDir/bin/qtl_regression.py \
+		${chunk_id} \
+		${params.samples_file} \
 		${normalized_matrix} \
 		${params.index_file} \
 		${params.indivs_order} \
@@ -127,7 +129,12 @@ workflow caqtlCalling {
 	count_matrix = extract_gc_content() | gc_normalize_count_matrix
 	plink_files = make_plink()
 	genome_chunks = create_genome_chunks() | flatMap(n -> n.split())
-	// qtl_regression(genome_chunks, count_matrix.hdf5, plink_files)
+	qtl_regression(genome_chunks, count_matrix.hdf5, plink_files) | collectFile(
+		name: "caqtl_results.tsv"
+		storeDir: params.outdir,
+		skip: 1,
+		keepHeader: true
+	)
 }
 
 workflow {

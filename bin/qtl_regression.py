@@ -5,6 +5,7 @@ import pandas as pd
 from scipy import stats as st
 import statsmodels.api as sm
 import h5py
+import time
 
 
 class Residualizer:
@@ -99,7 +100,7 @@ def main(phenotype_matrix, snps_per_dhs,
         "#chr", "start", "end", "chunk_id",
         'variant_id', 'distance_to_summit',
         'n_samples', 'n_cell_types',
-         'n_hom_ref', 'n_het', 'n_hom_alt',
+        'n_hom_ref', 'n_het', 'n_hom_alt',
         'f', 'f_pval',
         'b', 'b_se',
         'r2',
@@ -139,10 +140,9 @@ def find_snps_per_dhs(phenotype_df, variant_df, window):
         lower_bound = np.searchsorted(snp_positions, row['start'] + 1 - window)
         upper_bound = np.searchsorted(snp_positions, row['end'] + window, side='right')
         if lower_bound != upper_bound:
-            r = chr_df['index'].to_numpy()[[lower_bound, upper_bound - 1]] # returns one just before
-            result[phen_idx, r] = 1
+            snps_indices = chr_df['index'].to_numpy()[[lower_bound, upper_bound - 1]] # returns one just before
+            result[phen_idx, snps_indices] = 1
         else:
-            r = []
             invalid_phens_indices.append(phen_idx)  
 
     if len(invalid_phens_indices) != 0:
@@ -163,10 +163,11 @@ if __name__ == '__main__':
     parser.add_argument('phenotype_matrix', help='Path to normalized phenotype matrix, numpy format')
     parser.add_argument('index_file', help='Path to file with rows identificators of phenotype matrix')
     parser.add_argument('samples_order', help='Path to file with columns identificators (sample_ids) of phenotype matrix')
-    parser.add_argument('plink prefix', help='Plink prefix to read file with plink_pandas package')
+    parser.add_argument('plink_prefix', help='Plink prefix to read file with plink_pandas package')
     parser.add_argument('outpath', help='Path to fasta file with SNPs coded as IUPAC symbols')
     args = parser.parse_args()
 
+    t = time.perf_counter()
     ## ---- Read data for specific region only -----
     chrom, start, end = unpack_region(args.chunk_id)
 
@@ -235,6 +236,7 @@ if __name__ == '__main__':
     residualizers = np.array([Residualizer(sample_pcs[snp_samples_idx, :]) 
         for snp_samples_idx in valid_samples]) # len(SNPs), add covariates here
 
+    print(f"Preprocessing finished in {t - time.perf_counter()}")
     ## ------------ Run regressions -----------
     result = main(phenotype_matrix=phenotype_data, 
         snps_per_dhs=snps_per_dhs,
@@ -244,4 +246,5 @@ if __name__ == '__main__':
         snps_meta=bim[['variant_id', 'pos']],
         dhs_meta=masterlist[["#chr", "start", "end", "chunk_id", "summit"]]
     )
+    print(f"Processing finished in {t - time.perf_counter()}")
     result.to_csv(args.outpath, sep='\t', index=False)
