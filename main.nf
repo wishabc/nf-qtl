@@ -111,11 +111,11 @@ process qtl_regression {
 		tuple val(chunk_id), path(name)
 
 	script:
-	name = "${chunk_id}.qtl_results.tsv"
+	name = "${genome_chunk}.qtl_results.tsv"
 	plink_prefix = "${plink_files[0].simpleName}" // Assumes that prefix of all the files is the same and doesn't contain .
 	"""
 	python3 $moduleDir/bin/qtl_regression.py \
-		${chunk_id} \
+		${genome_chunk} \
 		${params.samples_file} \
 		${normalized_matrix} \
 		${params.index_file} \
