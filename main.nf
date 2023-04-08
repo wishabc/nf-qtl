@@ -112,7 +112,7 @@ process qtl_regression {
 
 	script:
 	name = "${chunk_id}.qtl_results.tsv"
-	plink_prefix = "${plink_files[0].simpleName}" // Assumes that prefix of all the files is the same
+	plink_prefix = "${plink_files[0].simpleName}" // Assumes that prefix of all the files is the same and doesn't contain .
 	"""
 	python3 $moduleDir/bin/qtl_regression.py '${chunk_id}' \
 		${normalized_matrix} \
