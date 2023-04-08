@@ -122,9 +122,9 @@ def find_snps_per_dhs(phenotype_df, variant_df, window):
     result = np.zeros((phenotype_len, len(variant_df.index)), dtype=bool)
     invalid_phens_indices = []
 
-    per_chr_groups = variant_df.reset_index().groupby('#chr')
+    per_chr_groups = variant_df.reset_index().groupby('chrom')
     for phen_idx, row in phenotype_df.iterrows():
-        chrom = row['chrom']
+        chrom = row['#chr']
         snp_positions = chr_df['pos'].to_numpy()
         chr_df = per_chr_groups.groups.get_group(chrom)
 
