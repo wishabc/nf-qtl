@@ -6,7 +6,6 @@ params.conda = "/home/sabramov/miniconda3/envs/babachi"
 
 process extract_gc_content {
 	conda params.conda
-	memory '16G'
 	publishDir params.outdir
 
 	output:
@@ -46,8 +45,8 @@ process gc_normalize_count_matrix {
 
 // Select bi-allelic SNVs and make plink files; PCA on genotypes for covariates
 process make_plink {
-	memory '16G'
 	publishDir "${params.outdir}/plink"
+	memory 400.GB
 	conda params.conda
 
 	output:
@@ -74,7 +73,6 @@ process make_plink {
 // Chunk genome up only look at regions with in the phenotype matrix
 process create_genome_chunks {
 	executor 'local'
-	memory '4G'
 	conda params.conda
 
 	output:
