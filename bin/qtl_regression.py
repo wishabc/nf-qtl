@@ -206,7 +206,7 @@ if __name__ == '__main__':
 
     bim = bim.iloc[snps_index].iloc[testable_snps].reset_index(drop=True)
     # use eval instead?
-    if len(bim.empty) == 0:
+    if bim.empty == 0:
         print(f'No SNPs passing filters found for {args.chunk_id}, exiting')
         with open(args.outpath, 'w') as f:
             f.write('\t'.join(header))
