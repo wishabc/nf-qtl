@@ -103,8 +103,7 @@ process qtl_regression {
 	conda params.conda
 
 	input:
-		tuple val(genome_chunk), path(normalized_matrix)
-		path plink_files 	// Files are named as plink.<suffix>
+		tuple val(genome_chunk), path(normalized_matrix), path(plink_files) 	// Files are named as plink.<suffix>
 
 	output:
 		tuple val(chunk_id), path(name)
