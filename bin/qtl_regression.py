@@ -132,7 +132,6 @@ def find_snps_per_dhs(phenotype_df, variant_df, window):
         upper_bound = np.searchsorted(snp_positions, row['end'] + window, side='right')
         if lower_bound != upper_bound:
             snps_indices = chr_df['index'].to_numpy()[[lower_bound, upper_bound - 1]] # returns one just before
-            print(snps_indices.shape)
             result[phen_idx, snps_indices] = 1
         else:
             invalid_phens_indices.append(phen_idx)  
@@ -140,7 +139,7 @@ def find_snps_per_dhs(phenotype_df, variant_df, window):
     if len(invalid_phens_indices) != 0:
         print(f'** dropping {len(invalid_phens_indices)} phenotypes without variants in cis-window')
         
-    return result, invalid_phens_indices
+    return result, np.array(invalid_phens_indices)
 
 
 def preprocess_data():
