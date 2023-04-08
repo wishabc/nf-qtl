@@ -199,7 +199,7 @@ if __name__ == '__main__':
     print('Testable SNPs', testable_snps.shape)
     bed = bed[testable_snps, :] # [SNPs x indivs]
 
-    bim = bim.iloc[snps_index * testable_snps].reset_index(drop=True)
+    bim = bim.iloc[snps_index].iloc[testable_snps].reset_index(drop=True)
     # use eval instead?
     bim['variant_id'] = bim.apply(
         lambda row: f"{row['chrom']}_{row['pos']}_{row['snp']}_{row['a0']}_{row['a1']}",
