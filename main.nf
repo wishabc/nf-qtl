@@ -130,7 +130,7 @@ workflow caqtlCalling {
 	plink_files = make_plink()
 	genome_chunks = create_genome_chunks() | flatMap(n -> n.split())
 	qtl_regression(genome_chunks, count_matrix.hdf5, plink_files) | collectFile(
-		name: "caqtl_results.tsv"
+		name: "caqtl_results.tsv",
 		storeDir: params.outdir,
 		skip: 1,
 		keepHeader: true
