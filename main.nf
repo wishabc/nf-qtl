@@ -138,7 +138,7 @@ workflow caqtlCalling {
 }
 workflow test {
 	genome_chunks = create_genome_chunks() | flatMap(n -> n.split())
-	count_matrix = Channel.of(file("/net/seq/data2/projects/sabramov/ENCODE4/caqtl-analysis/output/matrix_counts.norm.hdf5"))
+	count_matrix = Channel.of(file("/net/seq/data2/projects/sabramov/ENCODE4/caqtl-analysis/output/matrix_counts.hdf5"))
 	plink_files = Channel.of("/net/seq/data2/projects/sabramov/ENCODE4/caqtl-analysis/output/plink/plink*")
 		.map(it -> file(it)).collect(sort: true, flat: true)
 

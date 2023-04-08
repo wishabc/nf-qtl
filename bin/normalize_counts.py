@@ -35,7 +35,7 @@ def main(raw_tag_counts, regions_annotations):
     # Drop rows that are all NAs
     #normalized_tag_counts.dropna(axis='rows', inplace=True)
     nan_mask = (~np.isfinite(normalized_tag_counts)).any(axis=1)
-    return normalized_tag_counts[nan_mask], nan_mask
+    return normalized_tag_counts[nan_mask, :], nan_mask
     ### do I really need it?
     
     #df = regions_annotations.reset_index()[["#chr", "mid", "end", "region_id"]].join(normalized_tag_counts, on="region_id", how="right")
