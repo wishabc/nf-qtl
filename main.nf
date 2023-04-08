@@ -141,7 +141,7 @@ workflow test {
 	count_matrix = file("/net/seq/data2/projects/sabramov/ENCODE4/caqtl-analysis/output/matrix_counts.norm.hdf5")
 	plink_files = Channel.of("/net/seq/data2/projects/sabramov/ENCODE4/caqtl-analysis/output/plink_files/plink*")
 		.map(it -> file(it)).collect(sort: true)
-
+	genome_chunks.view()
 	qtl_regression(genome_chunks, count_matrix, plink_files) | collectFile(
 		name: "caqtl_results.tsv",
 		storeDir: params.outdir,
