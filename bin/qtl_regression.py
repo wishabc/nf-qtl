@@ -125,7 +125,7 @@ def find_snps_per_dhs(phenotype_df, variant_df, window):
     per_chr_groups = variant_df.reset_index().groupby('chrom')
     for phen_idx, row in phenotype_df.iterrows():
         chrom = row['#chr']
-        chr_df = per_chr_groups.groups.get_group(chrom)
+        chr_df = per_chr_groups.get_group(chrom)
         snp_positions = chr_df['pos'].to_numpy()
 
         lower_bound = np.searchsorted(snp_positions, row['start'] + 1 - window)
