@@ -161,6 +161,7 @@ if __name__ == '__main__':
     parser.add_argument('chunk_id', help='Path to normalized phenotype matrix, numpy format')
     parser.add_argument('metadata', help='Path to metadata file with ag_id and indiv_id columns')
     parser.add_argument('phenotype_matrix', help='Path to normalized phenotype matrix, numpy format')
+    parser.add_argument('mask', help='Path to nan masked DHSs')
     parser.add_argument('index_file', help='Path to file with rows identificators of phenotype matrix')
     parser.add_argument('samples_order', help='Path to file with columns identificators (sample_ids) of phenotype matrix')
     parser.add_argument('plink_prefix', help='Plink prefix to read file with plink_pandas package')
@@ -176,10 +177,11 @@ if __name__ == '__main__':
         names=["#chr", "start", "end", "chunk_id", "score", "n_samples",
         "n_peaks", "dhs_width", "summit", "start_core", "end_core", "avg_score"],
         header=None)
+    non_nan_mask = np.loadtxt(args.mask)
     dhs_chunk_idx = ((masterlist['#chr'] == chrom) 
         & (masterlist['start'] >= start) 
-        & (masterlist['end'] < end)).to_numpy().astype(bool)
-    
+        & (masterlist['end'] < end)).to_numpy().astype(bool) * non_nan_mask
+
     masterlist = masterlist.iloc[dhs_chunk_idx]
 
     with h5py.File(args.phenotype_matrix, 'r') as f:

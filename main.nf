@@ -30,8 +30,7 @@ process gc_normalize_count_matrix {
 		path gc_content_file
 
 	output:
-		path "${prefix}.hdf5", emit: hdf5
-		path "${prefix}.mask.txt", emit: mask
+		tuple path("${prefix}.hdf5"), path("${prefix}.mask.txt")
 	
 	script:
 	prefix = "matrix_counts.norm"
@@ -103,7 +102,7 @@ process qtl_regression {
 
 	input:
 		each genome_chunk
-		path normalized_matrix
+		tuple path(normalized_matrix), path(mask)
 		path plink_files 	// Files are named as plink.<suffix>
 
 	output:
@@ -117,6 +116,7 @@ process qtl_regression {
 		${genome_chunk} \
 		${params.samples_file} \
 		${normalized_matrix} \
+		${mask} \
 		${params.index_file} \
 		${params.indivs_order} \
 		${plink_prefix} \
@@ -125,10 +125,10 @@ process qtl_regression {
 }
 
 workflow caqtlCalling {
-	count_matrix = extract_gc_content() | gc_normalize_count_matrix
+	data = extract_gc_content() | gc_normalize_count_matrix
 	plink_files = make_plink()
 	genome_chunks = create_genome_chunks() | flatMap(n -> n.split())
-	qtl_regression(genome_chunks, count_matrix.hdf5, plink_files) | collectFile(
+	qtl_regression(genome_chunks, data, plink_files) | collectFile(
 		name: "caqtl_results.tsv",
 		storeDir: params.outdir,
 		skip: 1,
@@ -137,7 +137,10 @@ workflow caqtlCalling {
 }
 workflow test {
 	genome_chunks = create_genome_chunks() | flatMap(n -> n.split())
-	count_matrix = Channel.of(file("/net/seq/data2/projects/sabramov/ENCODE4/caqtl-analysis/output/matrix_counts.hdf5"))
+	count_matrix = Channel.of(tuple(
+		file("/net/seq/data2/projects/sabramov/ENCODE4/caqtl-analysis/output/matrix_counts.hdf5"),
+		file("/net/seq/data2/projects/sabramov/ENCODE4/caqtl-analysis/output/matrix_counts.mask.txt")
+		))
 	plink_files = Channel.of("/net/seq/data2/projects/sabramov/ENCODE4/caqtl-analysis/output/plink/plink*")
 		.map(it -> file(it)).collect(sort: true, flat: true)
 
