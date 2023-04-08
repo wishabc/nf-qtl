@@ -91,6 +91,8 @@ def get_testable_snps(gt_matrix, min_snps, gens=2):
         + (het >= min_snps).astype(np.int8) 
         + (homalt >= min_snps).astype(np.int8)) >= gens
 
+def preprocess_data():
+    pass
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Run QTL regression')

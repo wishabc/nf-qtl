@@ -40,7 +40,7 @@ process gc_normalize_count_matrix {
 	python3 $moduleDir/bin/normalize_counts.py \
 		${gc_content_file} \
 		${params.count_matrix} \
-		${prefix]}
+		${prefix}
 	"""
 }
 
