@@ -177,7 +177,7 @@ if __name__ == '__main__':
         names=["#chr", "start", "end", "chunk_id", "score", "n_samples",
         "n_peaks", "dhs_width", "summit", "start_core", "end_core", "avg_score"],
         header=None)
-    non_nan_mask = np.loadtxt(args.mask)
+    non_nan_mask = np.loadtxt(args.mask, dtype=bool)
     dhs_chunk_idx = ((masterlist['#chr'] == chrom) 
         & (masterlist['start'] >= start) 
         & (masterlist['end'] < end)).to_numpy().astype(bool) * non_nan_mask
