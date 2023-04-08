@@ -139,8 +139,7 @@ workflow caqtlCalling {
 workflow test {
 	genome_chunks = create_genome_chunks() | flatMap(n -> n.split())
 	count_matrix = file("/net/seq/data2/projects/sabramov/ENCODE4/caqtl-analysis/output/matrix_counts.norm.hdf5")
-	plink_files = Channel.of("/net/seq/data2/projects/sabramov/ENCODE4/caqtl-analysis/output/plink_files/plink*")
-		| map(it -> file(it))
+	plink_files = Channel.of("/net/seq/data2/projects/sabramov/ENCODE4/caqtl-analysis/output/plink_files/plink*").map(it -> file(it))
 		| collect()
 
 	qtl_regression(genome_chunks, count_matrix, plink_files) | collectFile(
