@@ -136,7 +136,8 @@ def find_snps_per_dhs(phenotype_df, variant_df, window):
         lower_bound = np.searchsorted(snp_positions, row['start'] + 1 - window)
         upper_bound = np.searchsorted(snp_positions, row['end'] + window, side='right')
         if lower_bound != upper_bound:
-            snps_indices = chr_df['index'].to_numpy()[[lower_bound, upper_bound - 1]] # returns one just before
+            snps_indices = chr_df['index'].to_numpy()[lower_bound: upper_bound - 1] # returns one just before
+            print(snps_indices)
             result[phen_idx, snps_indices] = True
         else:
             invalid_phens_indices.append(phen_idx)  
