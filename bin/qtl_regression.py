@@ -137,8 +137,7 @@ def find_snps_per_dhs(phenotype_df, variant_df, window):
         upper_bound = np.searchsorted(snp_positions, row['end'] + window, side='right')
         if lower_bound != upper_bound:
             snps_indices = chr_df['index'].to_numpy()[[lower_bound, upper_bound - 1]] # returns one just before
-            print(phen_idx, snps_indices)
-            result[phen_idx, snps_indices] = 1
+            result[phen_idx, snps_indices] = True
         else:
             invalid_phens_indices.append(phen_idx)  
 
@@ -220,10 +219,11 @@ if __name__ == '__main__':
     
     ## ----------- Find snps per DHS ---------
     snps_per_dhs, invalid_phens = find_snps_per_dhs(masterlist, bim, window=window) # [DHS x SNPs] boolean matrix, [DHS] boolean vector
+    print('SNP-DHS pairs -', snps_per_dhs.sum())
     phenotype_data = phenotype_data[~invalid_phens, :]
     snps_per_dhs = snps_per_dhs[~invalid_phens, :]
     masterlist = masterlist.iloc[~invalid_phens, :].reset_index(drop=True)
-
+    print('SNP-DHS pairs after filter -', snps_per_dhs.sum())
     ## --------- Read indiv to sample correspondence ----------
     indiv2samples_idx = pd.read_table(args.metadata)[['ag_id', 'indiv_id']].merge(
         fam['indiv_id'].reset_index()
