@@ -223,7 +223,7 @@ if __name__ == '__main__':
     phenotype_data = phenotype_data[~invalid_phens, :]
     snps_per_dhs = snps_per_dhs[~invalid_phens, :]
     masterlist = masterlist.iloc[~invalid_phens, :].reset_index(drop=True)
-    print('SNP-DHS pairs after filter -', snps_per_dhs.sum())
+    print('DHS with > 2 SNPs -', (snps_per_dhs.sum(axis=1) > 2).sum())
     ## --------- Read indiv to sample correspondence ----------
     indiv2samples_idx = pd.read_table(args.metadata)[['ag_id', 'indiv_id']].merge(
         fam['indiv_id'].reset_index()
