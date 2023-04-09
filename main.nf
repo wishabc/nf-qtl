@@ -99,6 +99,7 @@ process create_genome_chunks {
 process qtl_regression {
 	conda params.conda
 	tag "${genome_chunk}"
+	publishDir "${params.outdir}/chunks"
 
 	input:
 		each genome_chunk
