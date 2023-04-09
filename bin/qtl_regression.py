@@ -137,6 +137,7 @@ def find_snps_per_dhs(phenotype_df, variant_df, window):
         upper_bound = np.searchsorted(snp_positions, row['end'] + window, side='right')
         if lower_bound != upper_bound:
             snps_indices = chr_df['index'].to_numpy()[[lower_bound, upper_bound - 1]] # returns one just before
+            print(phen_idx, snps_indices)
             result[phen_idx, snps_indices] = 1
         else:
             invalid_phens_indices.append(phen_idx)  
@@ -152,7 +153,7 @@ def preprocess_data():
     # TODO: move preprocessing here
     pass
 
-# TODO add time
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Run QTL regression')
     parser.add_argument('chunk_id', help='Path to normalized phenotype matrix, numpy format')
