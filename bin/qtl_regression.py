@@ -133,7 +133,7 @@ def find_snps_per_dhs(phenotype_df, variant_df, window):
     for phen_idx, row in phenotype_df.iterrows():
         chrom = row['#chr']
         if per_chr_groups is None:
-            chr_df = variant_df
+            chr_df = variant_df.reset_index()
         else:
             chr_df = per_chr_groups.get_group(chrom)
         snp_positions = chr_df['pos'].to_numpy()
