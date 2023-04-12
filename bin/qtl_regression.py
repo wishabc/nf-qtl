@@ -167,7 +167,7 @@ def find_valid_samples(genotypes, cell_types, threshold=2):
     # genotypes # [SNP x sample]
     gen_pseudo = (genotypes + 1)[:, None, :]  # [SNP x 1 x sample]
     cell_types = cell_types[None, :, :] # [1 x cell_type x sample]
-    res = n_unique_last_axis(cell_types * gen_pseudo) >= threshold # [SNP x cell_type]
+    res = n_unique_last_axis(cell_types * gen_pseudo) >= threshold # [1 x SNP x cell_type]
     return np.squeeze(np.matmul(res, cell_types) * (genotypes != -1)).astype(bool) # [SNP x sample]
 
 
@@ -277,11 +277,11 @@ if __name__ == '__main__':
         
         ## Filter out cell-types with less than 2 distinct genotypes
         valid_samples = find_valid_samples(bed, ohe_cell_types.T) # [SNPs x samples]
-        print(valid_samples.shape)
         bed[~valid_samples] = -1
         testable_snps = find_testable_snps(bed, min_snps=3, gens=3)
         bed = bed[testable_snps, :] # [SNPs x indivs]
         snps_per_dhs = snps_per_dhs[:, testable_snps] # [DHS x SNPs] boolean matrix
+        valid_samples = valid_samples[testable_snps, :]
     else:
         valid_samples = (bed != -1) # [SNPs x samples]
 
