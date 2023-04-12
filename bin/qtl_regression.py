@@ -7,7 +7,7 @@ import statsmodels.api as sm
 import h5py
 import time
 from tqdm import tqdm
-
+from sklearn.preprocessing import OneHotEncoder
 
 header = [
         "#chr", "start", "end", "chunk_id", "summit",
@@ -126,11 +126,16 @@ def find_snps_per_dhs(phenotype_df, variant_df, window):
     phenotype_len = len(phenotype_df.index)
     result = np.zeros((phenotype_len, len(variant_df.index)), dtype=bool)
     invalid_phens_indices = []
-
-    per_chr_groups = variant_df.reset_index().groupby('chrom')
+    unique_chrs = variant_df['chrom'].unique()
+    per_chr_groups = None
+    if len(unique_chrs) > 1:
+        per_chr_groups = variant_df.reset_index().groupby('chrom')
     for phen_idx, row in phenotype_df.iterrows():
         chrom = row['#chr']
-        chr_df = per_chr_groups.get_group(chrom)
+        if per_chr_groups is None:
+            chr_df = variant_df
+        else:
+            chr_df = per_chr_groups.get_group(chrom)
         snp_positions = chr_df['pos'].to_numpy()
 
         lower_bound = np.searchsorted(snp_positions, row['start'] + 1 - window)
@@ -156,13 +161,17 @@ def preprocess_data():
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Run QTL regression')
     parser.add_argument('chunk_id', help='Path to normalized phenotype matrix, numpy format')
-    parser.add_argument('metadata', help='Path to metadata file with ag_id and indiv_id columns')
+    parser.add_argument('metadata', help='Path to metadata file with ag_id and indiv_id columns.' +
+        'Should contain cell_type column if run in cell_spec mode')
     parser.add_argument('phenotype_matrix', help='Path to normalized phenotype matrix, numpy format')
     parser.add_argument('mask', help='Path to nan masked DHSs')
     parser.add_argument('index_file', help='Path to file with rows identificators of phenotype matrix')
     parser.add_argument('samples_order', help='Path to file with columns identificators (sample_ids) of phenotype matrix')
     parser.add_argument('plink_prefix', help='Plink prefix to read file with plink_pandas package')
     parser.add_argument('outpath', help='Path to fasta file with SNPs coded as IUPAC symbols')
+    parser.add_argument('--cell_spec', help='Specify to do cell-specifc caQTL analysis',
+        default=False, action="store_true")
+
     args = parser.parse_args()
 
     t = time.perf_counter()
@@ -197,7 +206,7 @@ if __name__ == '__main__':
     bed[np.isnan(bed)] = -1
     bed = bed.astype(np.int8, copy=False)
     # pos is 1-based, start is 0-based
-    snps_index = bim.eval(f'chrom == "{chrom}" & pos >= {start + window + 1} & pos < {end + window}').to_numpy().astype(bool)
+    snps_index = bim.eval(f'chrom == "{chrom}" & pos >= {start - window + 1} & pos < {end + window}').to_numpy().astype(bool)
     bed = bed[snps_index, :].compute()
     
     # filter SNPs with homref, homalt and hets present
@@ -225,10 +234,25 @@ if __name__ == '__main__':
     print('SNP-DHS pairs -', snps_per_dhs.sum())
     print('DHS with > 2 SNPs -', (snps_per_dhs.sum(axis=1) > 2).sum())
     ## --------- Read indiv to sample correspondence ----------
-    indiv2samples_idx = pd.read_table(args.metadata)[['ag_id', 'indiv_id']].merge(
+    metadata = pd.read_table(args.metadata)
+    ## Check if all required columns present
+    is_cell_specific = args.cell_spec
+    req_cols = ['ag_id', 'indiv_id']
+    if is_cell_specific:
+        req_cols.append('cell_type')
+    assert set(req_cols).issubset(metadata.columns)
+
+    ordered_meta = metadata[req_cols].merge(
         fam['indiv_id'].reset_index()
-    ).set_index('ag_id').loc[samples_order, 'index'].to_numpy()
-    
+    ).set_index('ag_id').loc[samples_order, :]
+    difference = len(metadata.index) - len(ordered_meta.index)
+    if difference != 0:
+        print(f'{difference} samples has been filtered out!')
+
+    indiv2samples_idx = ordered_meta['index'].to_numpy()
+    cell_types = ordered_meta['cell_type'].to_numpy() # cell_types enumerated by sample_index
+    ohe_enc = OneHotEncoder(handle_unknown='ignore', sparse=False)
+    ohe_cell_types = ohe_enc.fit_transform(cell_types)
     # transform genotype matrix from [SNP x indiv] to [SNP x sample] format
     bed = bed[:, indiv2samples_idx]
     
@@ -239,7 +263,8 @@ if __name__ == '__main__':
     sample_pcs = covariates.loc[indiv2samples_idx].iloc[:, 2:].to_numpy()
     # calc residualizer for each variant
     valid_samples = (bed != -1) # [SNPs x samples]
-    residualizers = np.array([Residualizer(sample_pcs[snp_samples_idx, :]) 
+    covariates_np = np.concatenate([sample_pcs, ohe_cell_types], axis=1)
+    residualizers = np.array([Residualizer(covariates_np[snp_samples_idx, :]) 
         for snp_samples_idx in valid_samples]) # len(SNPs), add covariates here
 
     print(f"Preprocessing finished in {time.perf_counter() - t}s")
