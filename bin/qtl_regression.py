@@ -47,14 +47,15 @@ def process_snp(snp_phenotypes, snp_genotypes, residualizer):
     genotype_residuals = residualizer.transform(snp_genotypes.T).T
     phenotype_residuals = residualizer.transform(snp_phenotypes.T).T
     design = np.concatenate([genotype_residuals], axis=1) # add predictors here
-    
-    res = sm.OLS(phenotype_residuals, design).fit()
 
+    if design.shape[0] - 1 - residualizer.n < 1:
+        return None
+    else:
+        res = sm.OLS(phenotype_residuals, design).fit()
+        n_hom_ref, n_het, n_hom_alt = np.unique(snp_genotypes, return_counts=True)[1]
     bse = res.bse[0] * np.sqrt(design.shape[0] - 1) / np.sqrt(design.shape[0] - 1 - residualizer.n)
     f = (res.ess / (1 + residualizer.n)) / (res.ssr / (design.shape[0] - 1 - residualizer.n))
     f_pval = st.f.sf(f, dfn=1 + residualizer.n, dfd=design.shape[0] - 1 - residualizer.n)
-    
-    n_hom_ref, n_het, n_hom_alt = np.unique(snp_genotypes, return_counts=True)[1]
 
     return [
         design.shape[0], # samples tested
@@ -78,6 +79,8 @@ def process_dhs(phenotype_matrix, genotype_matrix, samples_per_snp, dhs_residual
         residualizer = dhs_residualizers[snp_index]
         snp_stats = process_snp(snp_phenotypes=snp_phenotypes, 
             snp_genotypes=snp_genotypes, residualizer=residualizer)
+        if snp_stats is None:
+            continue
         snp_id, snp_pos = snps_data.iloc[snp_index][['variant_id', 'pos']]
         result.append([
             *dhs_data_as_list,
