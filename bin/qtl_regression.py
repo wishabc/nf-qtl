@@ -169,8 +169,7 @@ def find_valid_samples(genotypes, cell_types, threshold=2):
     # cell_types - [cell_type x sample]
     # genotypes # [SNP x sample]
     gen_pseudo = (genotypes + 1)[:, None, :]  # [SNP x 1 x sample]
-    cell_types = cell_types[None, :, :] # [1 x cell_type x sample]
-    res = np.squeeze(n_unique_last_axis(cell_types * gen_pseudo) >= threshold) # [SNP x cell_type]
+    res = np.squeeze(n_unique_last_axis(cell_types[None, :, :] * gen_pseudo) >= threshold) # [SNP x cell_type]
     return (np.matmul(res, cell_types) * (genotypes != -1)).astype(bool) # [SNP x sample]
 
 
