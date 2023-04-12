@@ -280,6 +280,7 @@ if __name__ == '__main__':
         
         ## Filter out cell-types with less than 2 distinct genotypes
         valid_samples = find_valid_samples(bed, ohe_cell_types.T, 3) # [SNPs x samples]
+        print((bed != -1).sum(), valid_samples.sum())
         bed[~valid_samples] = -1
         testable_snps = find_testable_snps(bed, min_snps=3, gens=3)
         bed = bed[testable_snps, :] # [SNPs x indivs]
