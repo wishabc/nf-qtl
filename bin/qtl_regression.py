@@ -162,7 +162,7 @@ def preprocess_data():
 
 def n_unique_last_axis(matrix):
     a_s = np.sort(matrix, axis=2) # [SNP x cell_type x sample]
-    return matrix.shape[-1] - ((a_s[...,:-1] == a_s[...,1:]) | (a_s[...,:-1] == 0)).sum(-1)
+    return matrix.shape[-1] - ((a_s[...,:-1] == a_s[...,1:]) | (a_s[...,:-1] == 0)).sum(axis=-1)
 
 
 def find_valid_samples(genotypes, cell_types, threshold=2):
@@ -171,7 +171,7 @@ def find_valid_samples(genotypes, cell_types, threshold=2):
     gen_pseudo = (genotypes + 1)[:, None, :]  # [SNP x 1 x sample]
     cell_types = cell_types[None, :, :] # [1 x cell_type x sample]
     res = np.squeeze(n_unique_last_axis(cell_types * gen_pseudo) >= threshold) # [SNP x cell_type]
-    return np.matmul(res, cell_types) * (genotypes != -1).astype(bool) # [SNP x sample]
+    return (np.matmul(res, cell_types) * (genotypes != -1)).astype(bool) # [SNP x sample]
 
 
 if __name__ == '__main__':
@@ -280,7 +280,7 @@ if __name__ == '__main__':
         
         ## Filter out cell-types with less than 2 distinct genotypes
         valid_samples = find_valid_samples(bed, ohe_cell_types.T, 3) # [SNPs x samples]
-        print((bed != -1).sum(), valid_samples.sum())
+        print(f"SNPxDHS pairs. Before: {(bed != -1).sum()}, after: {valid_samples.sum()}")
         bed[~valid_samples] = -1
         testable_snps = find_testable_snps(bed, min_snps=3, gens=3)
         bed = bed[testable_snps, :] # [SNPs x indivs]
