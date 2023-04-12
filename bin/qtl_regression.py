@@ -157,6 +157,19 @@ def preprocess_data():
     # TODO: move preprocessing here
     pass
 
+def n_unique_last_axis(matrix):
+    a_s = np.sort(matrix, axis=2) # [SNP x cell_type x sample]
+    return matrix.shape[-1] - ((a_s[...,:-1] == a_s[...,1:]) | (a_s[...,:-1] == 0)).sum(-1)
+
+
+def find_valid_samples(genotypes, cell_types, threshold=2):
+    # cell_types - [cell_type x sample]
+    # genotypes # [SNP x sample]
+    gen_pseudo = (genotypes + 1)[:, None, :]  # [SNP x 1 x sample]
+    cell_types = cell_types[None, :, :] # [1 x cell_type x sample]
+    res = n_unique_last_axis(cell_types * gen_pseudo) >= threshold # [SNP x cell_type]
+    return np.matmul(res, cell_types) * (genotypes != -1) # [SNP x sample]
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Run QTL regression')
@@ -229,12 +242,14 @@ if __name__ == '__main__':
     ## ----------- Find snps per DHS ---------
     snps_per_dhs, invalid_phens = find_snps_per_dhs(masterlist, bim, window=window) # [DHS x SNPs] boolean matrix, [DHS] boolean vector
     phenotype_data = phenotype_data[~invalid_phens, :]
-    snps_per_dhs = snps_per_dhs[~invalid_phens, :]
+    snps_per_dhs = snps_per_dhs[~invalid_phens, :] # [DHS x SNPs] boolean matrix
     masterlist = masterlist.iloc[~invalid_phens, :].reset_index(drop=True)
     print('SNP-DHS pairs -', snps_per_dhs.sum())
     print('DHS with > 2 SNPs -', (snps_per_dhs.sum(axis=1) > 2).sum())
+
     ## --------- Read indiv to sample correspondence ----------
     metadata = pd.read_table(args.metadata)
+
     ## Check if all required columns present
     is_cell_specific = args.cell_spec
     req_cols = ['ag_id', 'indiv_id']
@@ -252,19 +267,30 @@ if __name__ == '__main__':
         print(f'{difference} samples has been filtered out!')
 
     indiv2samples_idx = ordered_meta['index'].to_numpy()
-    cell_types = ordered_meta['CT'].to_numpy() # cell_types enumerated by sample_index
-    ohe_enc = OneHotEncoder(handle_unknown='ignore', sparse=False)
-    ohe_cell_types = ohe_enc.fit_transform(cell_types.reshape(-1, 1))
+
     # transform genotype matrix from [SNP x indiv] to [SNP x sample] format
     bed = bed[:, indiv2samples_idx]
-    
+    if is_cell_specific:
+        cell_types = ordered_meta['CT'].to_numpy() # cell_types enumerated by sample_index
+        ohe_enc = OneHotEncoder(handle_unknown='ignore', sparse=False)
+        ohe_cell_types = ohe_enc.fit_transform(cell_types.reshape(-1, 1))
+        
+        ## Filter out cell-types with less than 2 distinct genotypes
+        valid_samples = find_valid_samples(bed, ohe_cell_types.T) # [SNPs x samples]
+        bed[~valid_samples] = -1
+        testable_snps = find_testable_snps(bed, min_snps=3, gens=3)
+        bed = bed[testable_snps, :] # [SNPs x indivs]
+        snps_per_dhs = snps_per_dhs[:, testable_snps] # [DHS x SNPs] boolean matrix
+    else:
+        valid_samples = (bed != -1) # [SNPs x samples]
+
     ## --------- Read covariates data ---------
     covariates = pd.read_table(f'{args.plink_prefix}.eigenvec')
     assert covariates['IID'].tolist() == fam['indiv_id'].tolist()
 
     sample_pcs = covariates.loc[indiv2samples_idx].iloc[:, 2:].to_numpy()
+    
     # calc residualizer for each variant
-    valid_samples = (bed != -1) # [SNPs x samples]
     covariates_np = np.concatenate([sample_pcs, ohe_cell_types], axis=1)
     residualizers = np.array([Residualizer(covariates_np[snp_samples_idx, :]) 
         for snp_samples_idx in valid_samples]) # len(SNPs), add covariates here
