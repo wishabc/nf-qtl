@@ -279,13 +279,14 @@ if __name__ == '__main__':
         ohe_cell_types = ohe_enc.fit_transform(cell_types.reshape(-1, 1))
         
         ## Filter out cell-types with less than 2 distinct genotypes
-        valid_samples = find_valid_samples(bed, ohe_cell_types.T) # [SNPs x samples]
+        valid_samples = find_valid_samples(bed, ohe_cell_types.T, 3) # [SNPs x samples]
         bed[~valid_samples] = -1
         testable_snps = find_testable_snps(bed, min_snps=3, gens=3)
         bed = bed[testable_snps, :] # [SNPs x indivs]
         snps_per_dhs = snps_per_dhs[:, testable_snps] # [DHS x SNPs] boolean matrix
         valid_samples = valid_samples[testable_snps, :]
         bim = bim.iloc[testable_snps, :]
+        print('DHS with > 2 SNPs -', (snps_per_dhs.sum(axis=1) > 2).sum())
     else:
         valid_samples = (bed != -1) # [SNPs x samples]
 
