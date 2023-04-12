@@ -282,6 +282,7 @@ if __name__ == '__main__':
         bed = bed[testable_snps, :] # [SNPs x indivs]
         snps_per_dhs = snps_per_dhs[:, testable_snps] # [DHS x SNPs] boolean matrix
         valid_samples = valid_samples[testable_snps, :]
+        bim = bim.iloc[testable_snps, :]
     else:
         valid_samples = (bed != -1) # [SNPs x samples]
 
