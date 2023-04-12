@@ -239,9 +239,11 @@ if __name__ == '__main__':
     is_cell_specific = args.cell_spec
     req_cols = ['ag_id', 'indiv_id']
     if is_cell_specific:
-        req_cols.append('cell_type')
-    assert set(req_cols).issubset(metadata.columns)
-
+        req_cols.append('ct')
+    try:
+        assert set(req_cols).issubset(metadata.columns)
+    except Exception as e:
+        print(f'{req_cols} not in {metadata.columns}')
     ordered_meta = metadata[req_cols].merge(
         fam['indiv_id'].reset_index()
     ).set_index('ag_id').loc[samples_order, :]
@@ -250,7 +252,7 @@ if __name__ == '__main__':
         print(f'{difference} samples has been filtered out!')
 
     indiv2samples_idx = ordered_meta['index'].to_numpy()
-    cell_types = ordered_meta['cell_type'].to_numpy() # cell_types enumerated by sample_index
+    cell_types = ordered_meta['ct'].to_numpy() # cell_types enumerated by sample_index
     ohe_enc = OneHotEncoder(handle_unknown='ignore', sparse=False)
     ohe_cell_types = ohe_enc.fit_transform(cell_types)
     # transform genotype matrix from [SNP x indiv] to [SNP x sample] format
