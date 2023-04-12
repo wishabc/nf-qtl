@@ -254,7 +254,7 @@ if __name__ == '__main__':
     indiv2samples_idx = ordered_meta['index'].to_numpy()
     cell_types = ordered_meta['CT'].to_numpy() # cell_types enumerated by sample_index
     ohe_enc = OneHotEncoder(handle_unknown='ignore', sparse=False)
-    ohe_cell_types = ohe_enc.fit_transform(cell_types)
+    ohe_cell_types = ohe_enc.fit_transform(cell_types.reshape(-1, 1))
     # transform genotype matrix from [SNP x indiv] to [SNP x sample] format
     bed = bed[:, indiv2samples_idx]
     
