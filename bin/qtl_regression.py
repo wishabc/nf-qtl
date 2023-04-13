@@ -110,9 +110,11 @@ class QTLmapper:
             if snp_genotypes.shape[0] - snp_genotypes.shape[1] - residualizer.n < 1:
                 continue
             snp_phenotypes = phenotype_matrix[valid_samples][:, None]  # [samples x 1]
-            
+            if snp_index == index:
+                print('My SNP', residualizer.n)
             snp_stats = self.process_snp(snp_phenotypes=snp_phenotypes,
-                                         snp_genotypes=snp_genotypes, residualizer=residualizer)
+                                         snp_genotypes=snp_genotypes,
+                                         residualizer=residualizer)
             snp_id, snp_pos = snps_data.iloc[snp_index][['variant_id', 'pos']]
             res.append([
                 *dhs_data_as_list,
@@ -133,6 +135,7 @@ class QTLmapper:
             dhs_residualizers = self.residualizers[snps_indices]
             current_dhs_data = self.dhs_data.iloc[dhs_idx]
             current_snps_data = self.snps_data.iloc[snps_indices]
+
             stats = self.process_dhs(phenotype_matrix=phenotype,
                                      genotype_matrix=genotypes,
                                      samples_per_snp=samples_per_snp,
@@ -309,6 +312,7 @@ def main(chunk_id, masterlist_path, non_nan_mask_path, phenotype_matrix_path,
         snps_per_dhs = snps_per_dhs[:, testable_snps]  # [DHS x SNPs] boolean matrix
         valid_samples = valid_samples[testable_snps, :]
         bim = bim.iloc[testable_snps, :]
+        global index
         index = (bim['variant_id'] == 'chr1_22268202_rs12741884_A_G').index[0]
         print('DHS with > 2 SNPs -', (snps_per_dhs.sum(axis=1) > 2).sum())
         covariates_np = np.concatenate([sample_pcs, ohe_cell_types], axis=1) # [sample x covariate]
