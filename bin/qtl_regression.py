@@ -29,8 +29,8 @@ class Residualizer:
         if self.dof == 0:
             self.Q = None
         else:
-            C = C[:, C.sum(0) != 0]
-            self.Q, _ = np.linalg.qr(C - C.mean(axis=0))
+            M = remove_redundant_columns(C) # to make qr more stable
+            self.Q, _ = np.linalg.qr(M - M.mean(axis=0))
 
         
 
@@ -44,12 +44,6 @@ class Residualizer:
         else:
             M0 = M - np.matmul(np.matmul(M0, self.Q), self.Q.T)
         return M0
-
-
-def unpack_region(s):
-    chrom, coords = s.split(":")
-    start, end = coords.split("-")
-    return chrom, int(start), int(end)
 
 
 class QTLmapper:
@@ -98,7 +92,6 @@ class QTLmapper:
                     dhs_residualizers, snps_data, dhs_data):
         res = []
         dhs_data_as_list = dhs_data.to_list()
-        snp_data = snps_data.reset_index()
         for snp_index, genotypes in enumerate(genotype_matrix):
             valid_samples = samples_per_snp[snp_index]
             snp_genotypes = genotypes[valid_samples][:, None]  # [samples x 1]
@@ -106,9 +99,11 @@ class QTLmapper:
             if residualizer.Q is None:
                 continue
             if self.include_interaction:
-                # FIXME: remove all 0 from cell_types
-                sample_cell_types = self.cell_type_data.T[valid_samples, :]  # [samples x cell_types]
-                snp_genotypes = np.concatenate([snp_genotypes, sample_cell_types], axis=1)
+                sample_cell_types = remove_redundant_columns(self.cell_type_data.T[valid_samples, :])  # [samples x cell_types]
+
+                # add interaction term
+                snp_genotypes = np.concatenate([snp_genotypes, snp_genotypes * sample_cell_types], axis=1)
+            
             if snp_genotypes.shape[0] - snp_genotypes.shape[1] - residualizer.n < 1:
                 continue
             snp_phenotypes = phenotype_matrix[valid_samples][:, None]  # [samples x 1]
@@ -191,8 +186,18 @@ def find_snps_per_dhs(phenotype_df, variant_df, window):
     return res, invalid_phens_mask
 
 
+def unpack_region(s):
+    chrom, coords = s.split(":")
+    start, end = coords.split("-")
+    return chrom, int(start), int(end)
+
+
+def remove_redundant_columns(matrix):
+    return matrix[:, np.all(matrix == 0, axis=0)]
+
+
 def n_unique_last_axis(matrix):
-    a_s = np.sort(matrix, axis=2)  # [SNP x cell_type x sample]
+    a_s = np.sort(matrix, axis=-1)  # [SNP x cell_type x sample]
     return matrix.shape[-1] - ((a_s[..., :-1] == a_s[..., 1:]) | (a_s[..., :-1] == 0)).sum(axis=-1)
 
 
@@ -307,12 +312,13 @@ def main(chunk_id, masterlist_path, non_nan_mask_path, phenotype_matrix_path,
 
         # Filter out cell-types with less than 2 distinct genotypes
         valid_samples = find_valid_samples(bed, ohe_cell_types.T, 3)  # [SNPs x samples]
-        print(f"SNPxDHS pairs. Before: {(bed != -1).sum()}, after: {valid_samples.sum()}")
+        before_n = (bed != -1).sum()
         bed[~valid_samples] = -1
         testable_snps = find_testable_snps(bed, min_snps=3, gens=3)
         bed = bed[testable_snps, :]  # [SNPs x indivs]
         snps_per_dhs = snps_per_dhs[:, testable_snps]  # [DHS x SNPs] boolean matrix
         valid_samples = valid_samples[testable_snps, :]
+        print(f"SNPxDHS pairs. Before: {before_n}, after: {valid_samples.sum()}")
         bim = bim.iloc[testable_snps, :].reset_index(drop=True)
         print('DHS with > 2 SNPs -', (snps_per_dhs.sum(axis=1) > 2).sum())
         covariates_np = np.concatenate([sample_pcs, ohe_cell_types], axis=1) # [sample x covariate]
