@@ -97,6 +97,7 @@ class QTLmapper:
                     dhs_residualizers, snps_data, dhs_data):
         res = []
         dhs_data_as_list = dhs_data.to_list()
+        snp_data = snps_data.reset_index()
         for snp_index, genotypes in enumerate(genotype_matrix):
             valid_samples = samples_per_snp[snp_index]
             snp_genotypes = genotypes[valid_samples][:, None]  # [samples x 1]
@@ -114,10 +115,11 @@ class QTLmapper:
             snp_stats = self.process_snp(snp_phenotypes=snp_phenotypes,
                                          snp_genotypes=snp_genotypes,
                                          residualizer=residualizer)
-            if snp_index == index:
+
+            if snp_data[snp_data['index'] == index].index[0] == snp_index:
                 print('My SNP_after_fit', snp_stats[-1])
                 print('My SNP', residualizer.n)
-                print(snps_data.iloc[snp_index][['variant_id', 'pos']])
+                print(snp_data.loc[snp_index])
             snp_id, snp_pos = snps_data.iloc[snp_index][['variant_id', 'pos']]
             res.append([
                 *dhs_data_as_list,
@@ -138,6 +140,9 @@ class QTLmapper:
             dhs_residualizers = self.residualizers[snps_indices]
             current_dhs_data = self.dhs_data.iloc[dhs_idx]
             current_snps_data = self.snps_data.iloc[snps_indices]
+
+            new_index = self.snps_data.iloc[index]
+            print(new_index)
 
             stats = self.process_dhs(phenotype_matrix=phenotype,
                                      genotype_matrix=genotypes,
