@@ -323,6 +323,7 @@ def main(chunk_id, masterlist_path, non_nan_mask_path, phenotype_matrix_path,
         bim = bim.iloc[testable_snps, :].reset_index(drop=True)
         global index
         index = bim[bim['variant_id'] == 'chr1_22268202_rs12741884_A_G'].index[0]
+        print(bim.iloc[index])
         print('DHS with > 2 SNPs -', (snps_per_dhs.sum(axis=1) > 2).sum())
         covariates_np = np.concatenate([sample_pcs, ohe_cell_types], axis=1) # [sample x covariate]
         np.save('cov_mat.npy', covariates_np[valid_samples[index], :])
