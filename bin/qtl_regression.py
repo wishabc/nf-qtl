@@ -29,6 +29,7 @@ class Residualizer:
         if self.dof == 0:
             self.Q = None
         else:
+            C = C[:, C.sum(0) != 0]
             self.Q, _ = np.linalg.qr(C - C.mean(axis=0))
 
         
@@ -140,9 +141,6 @@ class QTLmapper:
             dhs_residualizers = self.residualizers[snps_indices]
             current_dhs_data = self.dhs_data.iloc[dhs_idx]
             current_snps_data = self.snps_data.iloc[snps_indices]
-
-            new_index = self.snps_data.iloc[index]
-            print(new_index)
 
             stats = self.process_dhs(phenotype_matrix=phenotype,
                                      genotype_matrix=genotypes,
