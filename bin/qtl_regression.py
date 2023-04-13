@@ -81,7 +81,7 @@ class QTLmapper:
         dfd = design.shape[0] - dfn
         n_hom_ref, n_het, n_hom_alt = np.unique(snp_genotypes, return_counts=True)[1]
         bse = res.bse[0] * np.sqrt(design.shape[0] - design.shape[1]) / np.sqrt(dfd)
-        f = (res.ess / (dfn)) / (res.ssr / (dfd))
+        f = (res.ess / dfn) / (res.ssr / dfd)
         f_pval = st.f.sf(f, dfn=dfn, dfd=dfd)
 
         return [
@@ -170,8 +170,9 @@ def find_snps_per_dhs(phenotype_df, variant_df, window):
             chr_df = per_chr_groups.get_group(chrom)
         snp_positions = chr_df['pos'].to_numpy()
 
-        lower_bound = np.searchsorted(snp_positions, row['start'] + 1 - window)
-        upper_bound = np.searchsorted(snp_positions, row['end'] + window, side='right')
+        # Change start/end to summit if needed
+        lower_bound = np.searchsorted(snp_positions, row['summit'] + 1 - window)
+        upper_bound = np.searchsorted(snp_positions, row['summit'] + window, side='right')
         if lower_bound != upper_bound:
             snps_indices = chr_df['index'].to_numpy()[lower_bound:upper_bound - 1]  # returns one just before
             res[phen_idx, snps_indices] = True
@@ -213,9 +214,10 @@ def main(chunk_id, masterlist_path, non_nan_mask_path, phenotype_matrix_path,
                                header=None)
     non_nan_mask = np.loadtxt(non_nan_mask_path, dtype=bool)
     masterlist = masterlist.iloc[non_nan_mask]
+    # Change summit to start/end if needed
     dhs_chunk_idx = ((masterlist['#chr'] == chrom)
-                     & (masterlist['start'] >= start)
-                     & (masterlist['end'] < end)).to_numpy().astype(bool)
+                     & (masterlist['summit'] >= start)
+                     & (masterlist['summit'] < end)).to_numpy().astype(bool)
 
     masterlist = masterlist.iloc[dhs_chunk_idx].reset_index(drop=True)
 
