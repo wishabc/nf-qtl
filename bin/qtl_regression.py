@@ -110,11 +110,14 @@ class QTLmapper:
             if snp_genotypes.shape[0] - snp_genotypes.shape[1] - residualizer.n < 1:
                 continue
             snp_phenotypes = phenotype_matrix[valid_samples][:, None]  # [samples x 1]
-            if snp_index == index:
-                print('My SNP', residualizer.n)
+
             snp_stats = self.process_snp(snp_phenotypes=snp_phenotypes,
                                          snp_genotypes=snp_genotypes,
                                          residualizer=residualizer)
+            if snp_index == index:
+                print('My SNP_after_fit', snp_stats[-1])
+                print('My SNP', residualizer.n)
+                print(snps_data.iloc[snp_index][['variant_id', 'pos']])
             snp_id, snp_pos = snps_data.iloc[snp_index][['variant_id', 'pos']]
             res.append([
                 *dhs_data_as_list,
