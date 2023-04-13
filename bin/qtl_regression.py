@@ -295,7 +295,7 @@ def main(chunk_id, masterlist_path, non_nan_mask_path, phenotype_matrix_path,
     bed = bed[:, indiv2samples_idx]
     if is_cell_specific:
         cell_types = ordered_meta['CT'].to_numpy()  # cell_types enumerated by sample_index
-        ohe_enc = OneHotEncoder(handle_unknown='ignore', sparse=False)
+        ohe_enc = OneHotEncoder(handle_unknown='ignore', sparse_output=False)
         ohe_cell_types = ohe_enc.fit_transform(cell_types.reshape(-1, 1))
 
         # Filter out cell-types with less than 2 distinct genotypes
