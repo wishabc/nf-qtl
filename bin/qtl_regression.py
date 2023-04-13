@@ -142,6 +142,7 @@ class QTLmapper:
             current_snps_data = self.snps_data.iloc[snps_indices]
 
             new_index = self.snps_data.iloc[index]
+            print(self.snps_data[self.snps_data['variant_id'] == 'chr1_22268202_rs12741884_A_G'])
             print(new_index)
 
             stats = self.process_dhs(phenotype_matrix=phenotype,
