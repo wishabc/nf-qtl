@@ -142,7 +142,6 @@ class QTLmapper:
             current_snps_data = self.snps_data.iloc[snps_indices]
 
             new_index = self.snps_data.iloc[index]
-            print(self.snps_data[self.snps_data['variant_id'] == 'chr1_22268202_rs12741884_A_G'])
             print(new_index)
 
             stats = self.process_dhs(phenotype_matrix=phenotype,
@@ -336,7 +335,7 @@ def main(chunk_id, masterlist_path, non_nan_mask_path, phenotype_matrix_path,
     # calc residualizer for each variant
     residualizers = np.array([Residualizer(covariates_np[snp_samples_idx, :])
                               for snp_samples_idx in tqdm(valid_samples)])  # [SNPs x covariates]
-    print(residualizers[index].n, '\nindex=', index)
+    print(residualizers[index].n, '\nindex', index)
     print(f"Preprocessing finished in {time.perf_counter() - t}s")
     # ------------ Run regressions -----------
     qtl_mapper = QTLmapper(
