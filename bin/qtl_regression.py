@@ -309,6 +309,8 @@ def main(chunk_id, masterlist_path, non_nan_mask_path, phenotype_matrix_path,
         snps_per_dhs = snps_per_dhs[:, testable_snps]  # [DHS x SNPs] boolean matrix
         valid_samples = valid_samples[testable_snps, :]
         bim = bim.iloc[testable_snps, :]
+        index = (bim['variant_id'] == 'chr1_22268202_rs12741884_A_G').index[0]
+        np.save('cov_mat.npy', covariates_np[valid_samples[index], :])
         print('DHS with > 2 SNPs -', (snps_per_dhs.sum(axis=1) > 2).sum())
         covariates_np = np.concatenate([sample_pcs, ohe_cell_types], axis=1) # [sample x covariate]
     else:
