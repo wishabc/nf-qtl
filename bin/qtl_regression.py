@@ -314,7 +314,7 @@ def main(chunk_id, masterlist_path, non_nan_mask_path, phenotype_matrix_path,
         bed = bed[testable_snps, :]  # [SNPs x indivs]
         snps_per_dhs = snps_per_dhs[:, testable_snps]  # [DHS x SNPs] boolean matrix
         valid_samples = valid_samples[testable_snps, :]
-        bim = bim.iloc[testable_snps, :]
+        bim = bim.iloc[testable_snps, :].reset_index(drop=True)
         global index
         index = (bim['variant_id'] == 'chr1_22268202_rs12741884_A_G').index[0]
         print('DHS with > 2 SNPs -', (snps_per_dhs.sum(axis=1) > 2).sum())
@@ -363,7 +363,7 @@ if __name__ == '__main__':
     parser.add_argument('outpath', help='Path to fasta file with SNPs coded as IUPAC symbols')
     parser.add_argument('--cell_spec', help='Specify to do cell-specifc caQTL analysis',
                         default=False, action="store_true")
-    parser.add_argument('--with_interaction', help='Specify to include cell-specifc caQTL analysis',
+    parser.add_argument('--with_interaction', help='Specify to include cell x genotype interaction in caQTL analysis',
                         default=False, action="store_true")
 
     args = parser.parse_args()
