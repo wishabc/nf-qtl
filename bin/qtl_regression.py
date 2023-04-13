@@ -313,6 +313,7 @@ def main(chunk_id, masterlist_path, non_nan_mask_path, phenotype_matrix_path,
         print('DHS with > 2 SNPs -', (snps_per_dhs.sum(axis=1) > 2).sum())
         covariates_np = np.concatenate([sample_pcs, ohe_cell_types], axis=1) # [sample x covariate]
         np.save('cov_mat.npy', covariates_np[valid_samples[index], :])
+        np.save('samples_mask.npy', valid_samples[index])
     else:
         valid_samples = (bed != -1)  # [SNPs x samples]
         ohe_cell_types = None
