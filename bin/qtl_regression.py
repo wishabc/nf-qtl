@@ -117,10 +117,6 @@ class QTLmapper:
                                          snp_genotypes=snp_genotypes,
                                          residualizer=residualizer)
 
-            if snp_data[snp_data['index'] == index].index[0] == snp_index:
-                print('My SNP_after_fit', snp_stats[-1])
-                print('My SNP', residualizer.n)
-                print(snp_data.loc[snp_index])
             snp_id, snp_pos = snps_data.iloc[snp_index][['variant_id', 'pos']]
             res.append([
                 *dhs_data_as_list,
@@ -318,13 +314,8 @@ def main(chunk_id, masterlist_path, non_nan_mask_path, phenotype_matrix_path,
         snps_per_dhs = snps_per_dhs[:, testable_snps]  # [DHS x SNPs] boolean matrix
         valid_samples = valid_samples[testable_snps, :]
         bim = bim.iloc[testable_snps, :].reset_index(drop=True)
-        global index
-        index = bim[bim['variant_id'] == 'chr1_22268202_rs12741884_A_G'].index[0]
-        print(bim.iloc[index])
         print('DHS with > 2 SNPs -', (snps_per_dhs.sum(axis=1) > 2).sum())
         covariates_np = np.concatenate([sample_pcs, ohe_cell_types], axis=1) # [sample x covariate]
-        np.save('cov_mat.npy', covariates_np[valid_samples[index], :])
-        np.save('samples_mask.npy', valid_samples[index])
     else:
         valid_samples = (bed != -1)  # [SNPs x samples]
         ohe_cell_types = None
@@ -333,7 +324,6 @@ def main(chunk_id, masterlist_path, non_nan_mask_path, phenotype_matrix_path,
     # calc residualizer for each variant
     residualizers = np.array([Residualizer(covariates_np[snp_samples_idx, :])
                               for snp_samples_idx in tqdm(valid_samples)])  # [SNPs x covariates]
-    print(residualizers[index].n, '\nindex', index)
     print(f"Preprocessing finished in {time.perf_counter() - t}s")
     # ------------ Run regressions -----------
     qtl_mapper = QTLmapper(
