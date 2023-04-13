@@ -24,12 +24,19 @@ header = [
 class Residualizer:
     def __init__(self, C):
         # center and orthogonalize
-        self.Q, _ = np.linalg.qr(C - C.mean(0))
-        self.dof = C.shape[0] - C.shape[1]
-        self.n = C.shape[1]
+        self.n = np.linalg.matrix_rank(C)
+        self.dof = C.shape[0] - self.n
+        if self.dof == 0:
+            self.Q = None
+        else:
+            self.Q, _ = np.linalg.qr(C - C.mean(axis=0))
+
+        
 
     def transform(self, M, center=True):
         """Residualize rows of M wrt columns of C"""
+        if self.Q is None:
+            return None
         M0 = M - M.mean(1, keepdims=True)
         if center:
             M0 = M0 - np.matmul(np.matmul(M0, self.Q), self.Q.T)
@@ -70,10 +77,12 @@ class QTLmapper:
         phenotype_residuals = residualizer.transform(snp_phenotypes.T).T
 
         res = sm.OLS(phenotype_residuals, design).fit()
+        dfn = design.shape[1] + residualizer.n
+        dfd = design.shape[0] - dfn
         n_hom_ref, n_het, n_hom_alt = np.unique(snp_genotypes, return_counts=True)[1]
-        bse = res.bse[0] * np.sqrt(design.shape[0] - 1) / np.sqrt(design.shape[0] - 1 - residualizer.n)
-        f = (res.ess / (1 + residualizer.n)) / (res.ssr / (design.shape[0] - 1 - residualizer.n))
-        f_pval = st.f.sf(f, dfn=1 + residualizer.n, dfd=design.shape[0] - 1 - residualizer.n)
+        bse = res.bse[0] * np.sqrt(design.shape[0] - design.shape[1]) / np.sqrt(dfd)
+        f = (res.ess / (dfn)) / (res.ssr / (dfd))
+        f_pval = st.f.sf(f, dfn=dfn, dfd=dfd)
 
         return [
             design.shape[0],  # samples tested
@@ -81,7 +90,7 @@ class QTLmapper:
             n_hom_ref, n_het, n_hom_alt,
             f, f_pval,
             res.params[0], bse,
-            res.rsquared, res.ess, res.ssr, 1 + residualizer.n
+            res.rsquared, res.ess, res.ssr, dfn
         ]
 
     def process_dhs(self, phenotype_matrix, genotype_matrix, samples_per_snp,
@@ -92,10 +101,13 @@ class QTLmapper:
             valid_samples = samples_per_snp[snp_index]
             snp_genotypes = genotypes[valid_samples][:, None]  # [samples x 1]
             residualizer = dhs_residualizers[snp_index]
+            if residualizer.Q is None:
+                continue
             if self.include_interaction:
+                # FIXME: remove all 0 from cell_types
                 sample_cell_types = self.cell_type_data.T[valid_samples, :]  # [samples x cell_types]
                 snp_genotypes = np.concatenate([snp_genotypes, sample_cell_types], axis=1)
-            if snp_genotypes.shape[0] - 1 - residualizer.n < 1:
+            if snp_genotypes.shape[0] - snp_genotypes.shape[1] - residualizer.n < 1:
                 continue
             snp_phenotypes = phenotype_matrix[valid_samples][:, None]  # [samples x 1]
             
@@ -115,7 +127,7 @@ class QTLmapper:
         res = []
         for dhs_idx, snps_indices in enumerate(tqdm(self.snps_per_phenotype)):
             # sub-setting matrices
-            phenotype = self.phenotype_matrix[dhs_idx, :].squeeze()
+            phenotype = np.squeeze(self.phenotype_matrix[dhs_idx, :])
             genotypes = self.genotype_matrix[snps_indices, :]
             samples_per_snp = self.samples_per_snps[snps_indices, :]
             dhs_residualizers = self.residualizers[snps_indices]
@@ -296,7 +308,7 @@ def main(chunk_id, masterlist_path, non_nan_mask_path, phenotype_matrix_path,
         valid_samples = valid_samples[testable_snps, :]
         bim = bim.iloc[testable_snps, :]
         print('DHS with > 2 SNPs -', (snps_per_dhs.sum(axis=1) > 2).sum())
-        covariates_np = np.concatenate([sample_pcs, ohe_cell_types], axis=1)
+        covariates_np = np.concatenate([sample_pcs, ohe_cell_types], axis=1) # [sample x covariate]
     else:
         valid_samples = (bed != -1)  # [SNPs x samples]
         ohe_cell_types = None
