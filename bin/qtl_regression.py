@@ -99,7 +99,7 @@ class QTLmapper:
             if residualizer.Q is None:
                 continue
             if self.include_interaction:
-                sample_cell_types = remove_redundant_columns(self.cell_type_data.T[valid_samples, :])  # [samples x cell_types]
+                sample_cell_types = remove_redundant_columns(self.cell_type_data[valid_samples, :])  # [samples x cell_types]
 
                 # add interaction term
                 snp_genotypes = np.concatenate([snp_genotypes, snp_genotypes * sample_cell_types], axis=1)
