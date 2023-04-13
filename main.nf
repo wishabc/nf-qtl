@@ -112,6 +112,7 @@ process qtl_regression {
 	name = "${genome_chunk}.qtl_results.tsv"
 	plink_prefix = "${plink_files[0].simpleName}" // Assumes that prefix of all the files is the same and doesn't contain .
 	cell_spec = params.cell_spec ? "--cell_spec" : ""
+	interaction = params.interaction ? "--with_interaction" : ""
 	"""
 	python3 $moduleDir/bin/qtl_regression.py \
 		${genome_chunk} \
@@ -122,7 +123,8 @@ process qtl_regression {
 		${params.indivs_order} \
 		${plink_prefix} \
 		${name} \
-		${cell_spec}
+		${cell_spec} \
+		${interaction}
 	"""
 }
 
