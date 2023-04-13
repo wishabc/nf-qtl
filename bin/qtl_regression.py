@@ -322,7 +322,7 @@ def main(chunk_id, masterlist_path, non_nan_mask_path, phenotype_matrix_path,
     # calc residualizer for each variant
     residualizers = np.array([Residualizer(covariates_np[snp_samples_idx, :])
                               for snp_samples_idx in tqdm(valid_samples)])  # [SNPs x covariates]
-
+    print(residualizers[index].n)
     print(f"Preprocessing finished in {time.perf_counter() - t}s")
     # ------------ Run regressions -----------
     qtl_mapper = QTLmapper(
