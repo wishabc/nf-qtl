@@ -103,6 +103,7 @@ class QTLmapper:
                 df_model, df_residuals)
         except AssertionError:
             mask, [hom_ref, het, hom_alt] = filter_by_genotypes_counts(snp_genotypes, 3, 3, return_counts=True)
+            print(mask.sum())
             print(hom_ref[mask].min(), het[mask].min(), hom_alt[mask].min())
             np.save('X_initial.npy', snp_genotypes)
             np.save('Y_initial.npy', snp_phenotypes)
