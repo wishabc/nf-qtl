@@ -151,7 +151,9 @@ class QTLmapper:
             print(df.head())
             raise
         print(pd.isna(df['f_stat']).sum())
-        df['log_f_pval'] = -st.f.logsf(df['f_stat'], dfn=df['df_model'], dfd=df['df_residuals'])
+        df['log_f_pval'] = -st.f.logsf(df['f_stat'].to_numpy(),
+            dfn=df['df_model'].to_numpy(),
+            dfd=df['df_residuals'].to_numpy())
         df['minor_allele_count'] = df[['n_hom_ref', 'n_hom_alt']].min(axis=1) * 2 + df['n_het']
         return df
 
