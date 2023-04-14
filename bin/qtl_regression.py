@@ -102,7 +102,8 @@ class QTLmapper:
             snp_stats, coeffs = self.fit_regression(design, phenotype_residuals,
                 df_model, df_residuals)
         except AssertionError:
-            print(filter_by_genotypes_counts(snp_genotypes, 3, 3, return_counts=True)[1])
+            mask, [hom_ref, het, hom_alt] = filter_by_genotypes_counts(snp_genotypes, 3, 3, return_counts=True)[1]
+            print(hom_ref[mask].min(), het[mask].min(), hom_alt[mask].min())
             np.save('X_initial.npy', snp_genotypes)
             np.save('Y_initial.npy', snp_phenotypes)
             np.save('residualizer.npy', residualizer.C)
@@ -262,11 +263,6 @@ def unpack_region(s):
 def remove_redundant_columns(matrix):
     cols_mask = np.any(matrix != 0, axis=0)
     return matrix[:, cols_mask], cols_mask
-
-
-def n_unique_last_axis(matrix):
-    a_s = np.sort(matrix, axis=-1)  # [SNP x cell_type x sample]
-    return matrix.shape[-1] - ((a_s[..., :-1] == a_s[..., 1:]) | (a_s[..., :-1] == 0)).sum(axis=-1)
 
 
 def find_valid_samples(genotypes, cell_types, min_samples_per_genotype=3, unique_genotypes=3):
