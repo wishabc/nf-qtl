@@ -115,7 +115,7 @@ class QTLmapper:
                     np.concatenate([snp_genotypes, interaction], axis=1))
                 valid_design_cols_indices = np.where(valid_design_cols_mask)
             else:
-                valid_design_cols_indices = np.zeros(1)
+                valid_design_cols_indices = np.zeros(1, dtype=int)
             if snp_genotypes.shape[0] - snp_genotypes.shape[1] - residualizer.n < 1:
                 continue
 
@@ -145,13 +145,12 @@ class QTLmapper:
     @staticmethod
     def post_processing(df):
         # Do in vectorized manner
+        df['minor_allele_count'] = df[['n_hom_ref', 'n_hom_alt']].min(axis=1) * 2 + df['n_het']
         df['f_stat'] = ((df['ss_model'] / df['df_model']) / (df['ss_residuals'] / df['df_residuals'])).astype(float)
         df['log_f_pval'] = -st.f.logsf(
             df['f_stat'].to_numpy(),
             dfd=df['df_residuals'].to_numpy(),
             dfn=df['df_model'].to_numpy())
-
-        df['minor_allele_count'] = df[['n_hom_ref', 'n_hom_alt']].min(axis=1) * 2 + df['n_het']
         return df
 
 
@@ -180,7 +179,7 @@ class QTLmapper:
 
         stats_res = pd.DataFrame(stats_res, columns=header)
         coefs_res = pd.DataFrame(np.concatenate(coefs_res), 
-            columns=['variant_id', 'chunk_id', 'cell_type_idx', 'coeff', 'coeff_se'])
+            columns=['variant_id', 'chunk_id', 'design_var_index', 'coeff', 'coeff_se'])
         return self.post_processing(stats_res), coefs_res
 
 
@@ -320,7 +319,6 @@ def main(chunk_id, masterlist_path, non_nan_mask_path, phenotype_matrix_path,
     snps_per_dhs = snps_per_dhs[~invalid_phens, :]  # [DHS x SNPs] boolean matrix
     masterlist = masterlist.iloc[~invalid_phens, :].reset_index(drop=True)
     print('SNP-DHS pairs -', snps_per_dhs.sum())
-    print('DHS with > 2 SNPs -', (snps_per_dhs.sum(axis=1) > 2).sum())
 
     # --------- Read indiv to sample correspondence ----------
     metadata = pd.read_table(metadata_path)
@@ -355,7 +353,6 @@ def main(chunk_id, masterlist_path, non_nan_mask_path, phenotype_matrix_path,
         cell_types = ordered_meta['CT'].to_numpy()  # cell_types enumerated by sample_index
         ohe_enc = OneHotEncoder(handle_unknown='ignore', sparse_output=False)
         ohe_cell_types = ohe_enc.fit_transform(cell_types.reshape(-1, 1))
-
         # Filter out cell-types with less than 2 distinct genotypes
         valid_samples = find_valid_samples(bed, ohe_cell_types.T, 3)  # [SNPs x samples]
         before_n = (bed != -1).sum()
@@ -364,9 +361,8 @@ def main(chunk_id, masterlist_path, non_nan_mask_path, phenotype_matrix_path,
         bed = bed[testable_snps, :]  # [SNPs x indivs]
         snps_per_dhs = snps_per_dhs[:, testable_snps]  # [DHS x SNPs] boolean matrix
         valid_samples = valid_samples[testable_snps, :]
-        print(f"SNPxDHS pairs. Before: {before_n}, after: {valid_samples.sum()}")
+        print(f"SNPxDHS pairs. Before: {before_n}, after: {snps_per_dhs.sum()}")
         bim = bim.iloc[testable_snps, :].reset_index(drop=True)
-        print('DHS with > 2 SNPs -', (snps_per_dhs.sum(axis=1) > 2).sum())
         covariates_np = np.concatenate([sample_pcs, ohe_cell_types], axis=1) # [sample x covariate]
     else:
         valid_samples = (bed != -1)  # [SNPs x samples]
@@ -392,7 +388,7 @@ def main(chunk_id, masterlist_path, non_nan_mask_path, phenotype_matrix_path,
     )
     res, coefs = qtl_mapper.map_qtl()
     print(f"Processing finished in {time.perf_counter() - t}s")
-    return res, coefs
+    return res, coefs, ohe_enc.categories_[0]
 
 
 if __name__ == '__main__':
@@ -414,7 +410,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    result, coefs = main(
+    result, coefs, cell_types = main(
         chunk_id=args.chunk_id,
         masterlist_path=args.index_file,
         non_nan_mask_path=args.mask,
@@ -426,5 +422,6 @@ if __name__ == '__main__':
         metadata_path=args.metadata,
         include_interaction=args.with_interaction
     )
-    result.to_csv(f'{args.outpath}.result.tsv', sep='\t', index=False)
-    coefs.to_csv(f'{args.outpath}.coefs.tsv', sep='\t', index=False)
+    result.to_csv(f'{args.outpath}.result.tsv.gz', sep='\t', index=False)
+    coefs.to_csv(f'{args.outpath}.coefs.tsv.gz', sep='\t', index=False)
+    np.savetxt(f'{args.outpath}.cells_order.txt', cell_types, delimiter='\t')
