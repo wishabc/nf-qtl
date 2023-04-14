@@ -68,7 +68,6 @@ class QTLmapper:
         XtX = np.matmul(np.transpose(X), X)
         XtY = np.matmul(np.transpose(X), Y)
         XtXinv = np.linalg.inv(XtX)
-
         coeffs = np.matmul(XtXinv, XtY)
 
         Y_predicted = np.matmul(X, coeffs)
@@ -79,6 +78,9 @@ class QTLmapper:
         
         # mean sum of squares
         ms_residuals = ss_residuals / df_residuals
+        if ms_residuals < 0:
+            print('Nu nahui')
+            raise AssertionError
         # coeffs standard error
         coeffs_se = np.sqrt(XtXinv[np.eye(X.shape[1], dtype=bool)][..., None] * ms_residuals)
 
@@ -90,7 +92,8 @@ class QTLmapper:
         n_hom_ref, n_het, n_hom_alt = np.unique(snp_genotypes, return_counts=True)[1]
         df_model = design.shape[1]
         df_residuals = design.shape[0] - df_model - residualizer.n
-        snp_stats, coeffs = self.fit_regression(design, phenotype_residuals, df_model, df_residuals)
+        snp_stats, coeffs = self.fit_regression(design, phenotype_residuals,
+            df_model, df_residuals)
 
         return [
             design.shape[0],  # samples tested
