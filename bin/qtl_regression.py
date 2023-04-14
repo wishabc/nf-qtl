@@ -145,15 +145,14 @@ class QTLmapper:
     @staticmethod
     def post_processing(df):
         # Do in vectorized manner
-        try:
-            df['f_stat'] = (df['ss_model'] / df['df_model']) / (df['ss_residuals'] / df['df_residuals'])
-        except:
-            print(df.head())
-            raise
-        print(pd.isna(df['f_stat']).sum())
-        df['log_f_pval'] = -st.f.logsf(df['f_stat'].to_numpy(),
-            dfn=df['df_model'].to_numpy(),
-            dfd=df['df_residuals'].to_numpy())
+        df['f_stat'] = (df['ss_model'] / df['df_model']) / (df['ss_residuals'] / df['df_residuals'])
+        print(np.isnan(df['df_model'].to_numpy()).sum(),
+            np.isnan(df['df_residuals'].to_numpy()).sum())
+        df['log_f_pval'] = -st.f.logsf(
+            df['f_stat'].to_numpy(),
+            dfd=df['df_model'].to_numpy(),
+            dfn=df['df_residuals'].to_numpy())
+
         df['minor_allele_count'] = df[['n_hom_ref', 'n_hom_alt']].min(axis=1) * 2 + df['n_het']
         return df
 
