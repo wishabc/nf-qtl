@@ -204,6 +204,7 @@ def filter_by_genotypes_counts(gt_matrix, min_samples_per_genotype, unique_genot
     homref = (gt_matrix == 0).sum(axis=1)
     het = (gt_matrix == 1).sum(axis=1)
     homalt = (gt_matrix == 2).sum(axis=1)
+    print(homref, homalt, het)
     res = ((homref >= min_samples_per_genotype).astype(np.int8)
             + (het >= min_samples_per_genotype).astype(np.int8)
             + (homalt >= min_samples_per_genotype).astype(np.int8)) >= unique_genotypes
@@ -272,8 +273,8 @@ def find_valid_samples(genotypes, cell_types, min_samples_per_genotype=3, unique
     # cell_types - [cell_type x sample]
     # genotypes # [SNP x sample]
     res = np.zeros(genotypes.shape, dtype=bool)
-    for snp_idx, snp_samples in enumerate(genotypes + 1):
-        snp_genotype_by_cell_type = cell_types * snp_samples[None, :] - 1 # [cell_type x sample]
+    for snp_idx, snp_samples in enumerate(genotypes):
+        snp_genotype_by_cell_type = cell_types * (snp_samples[None, :] + 1) - 1 # [cell_type x sample]
         valid_cell_types_mask = filter_by_genotypes_counts(snp_genotype_by_cell_type,
             min_samples_per_genotype=min_samples_per_genotype,
             unique_genotypes=unique_genotypes
@@ -386,7 +387,7 @@ def main(chunk_id, masterlist_path, non_nan_mask_path, phenotype_matrix_path,
         ohe_enc = OneHotEncoder(handle_unknown='ignore', sparse_output=False)
         ohe_cell_types = ohe_enc.fit_transform(cell_types.reshape(-1, 1))
         # Filter out cell-types with less than 2 distinct genotypes
-        valid_samples = find_valid_samples(bed, ohe_cell_types.T, 3)  # [SNPs x samples]
+        valid_samples = find_valid_samples(bed, ohe_cell_types.T, 3, 3)  # [SNPs x samples]
         before_n = (bed != -1).sum()
         bed[~valid_samples] = -1
         testable_snps = find_testable_snps(bed, min_samples_per_genotype=3, unique_genotypes=3, ma_frac=allele_frac)
