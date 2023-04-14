@@ -81,7 +81,7 @@ class QTLmapper:
         # coeffs standard error
         coeffs_se = np.sqrt(XtXinv[np.eye(X.shape[1], dtype=bool)][..., None] * ms_residuals)
 
-        return [ss_model[0], ss_residuals[0], df_model, df_residuals], [coeffs[0, :], coeffs_se[0, :]]
+        return [ss_model[0], ss_residuals[0], df_model, df_residuals], [coeffs[:, 0], coeffs_se[:, 0]]
 
     def process_snp(self, snp_phenotypes, snp_genotypes, residualizer):
         design = residualizer.transform(snp_genotypes.T).T
