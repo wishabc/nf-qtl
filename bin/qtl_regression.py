@@ -113,7 +113,7 @@ class QTLmapper:
                 interaction = snp_genotypes * self.cell_type_data[valid_samples, :]  # [samples x cell_types]
                 snp_genotypes, valid_design_cols_mask = remove_redundant_columns(
                     np.concatenate([snp_genotypes, interaction], axis=1))
-                valid_design_cols_indices = np.where(valid_design_cols_mask)
+                valid_design_cols_indices = np.where(valid_design_cols_mask)[0]
             else:
                 valid_design_cols_indices = np.zeros(1, dtype=int)
             if snp_genotypes.shape[0] - snp_genotypes.shape[1] - residualizer.n < 1:
