@@ -102,7 +102,7 @@ class QTLmapper:
             snp_stats, coeffs = self.fit_regression(design, phenotype_residuals,
                 df_model, df_residuals)
         except AssertionError:
-            print(filter_by_genotypes_counts(snp_genotypes, return_counts=True)[1])
+            print(filter_by_genotypes_counts(snp_genotypes, 3, 3, return_counts=True)[1])
             np.save('X_initial.npy', snp_genotypes)
             np.save('Y_initial.npy', snp_phenotypes)
             np.save('residualizer.npy', residualizer.C)
@@ -275,13 +275,14 @@ def find_valid_samples(genotypes, cell_types, min_samples_per_genotype=3, unique
     res = np.zeros(genotypes.shape, dtype=bool)
     for snp_idx, snp_samples in enumerate(genotypes):
         snp_genotype_by_cell_type = cell_types * (snp_samples[None, :] + 1) - 1 # [cell_type x sample]
-        valid_cell_types_mask = filter_by_genotypes_counts(snp_genotype_by_cell_type,
+        valid_cell_types_mask = filter_by_genotypes_counts(
+            snp_genotype_by_cell_type,
             min_samples_per_genotype=min_samples_per_genotype,
             unique_genotypes=unique_genotypes
             )
         res[snp_idx, :] = np.any(cell_types[valid_cell_types_mask, :] != 0, axis=0)
 
-    return res * (genotypes != -1).astype(bool)  # [SNP x sample]
+    return res * (genotypes != -1).astype(bool) # [SNP x sample]
 
 
 # Too large function! TODO: move preprocessing to smaller functions
