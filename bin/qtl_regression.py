@@ -127,8 +127,7 @@ class QTLmapper:
             if self.include_interaction:
                 # calculate interaction
                 interaction = snp_genotypes * self.cell_type_data[valid_samples, :]  # [samples x cell_types]
-                snp_genotypes, valid_design_cols_mask = remove_redundant_columns(
-                    np.concatenate([snp_genotypes, interaction], axis=1))
+                snp_genotypes, valid_design_cols_mask = remove_redundant_columns(interaction)
                 valid_design_cols_indices = np.where(valid_design_cols_mask)[0]
             else:
                 valid_design_cols_indices = np.zeros(1, dtype=int)
@@ -201,16 +200,24 @@ class QTLmapper:
         return self.post_processing(stats_res), coefs_res
 
 
-def find_testable_snps(gt_matrix, min_snps, gens=2, ma_frac=0.05):
-    # todo: prettify
+def filter_by_genotypes_counts(gt_matrix, min_samples_per_genotype, unique_genotypes, return_counts=False):
     homref = (gt_matrix == 0).sum(axis=1)
     het = (gt_matrix == 1).sum(axis=1)
     homalt = (gt_matrix == 2).sum(axis=1)
-    enough_gens = ((homref >= min_snps).astype(np.int8)
-            + (het >= min_snps).astype(np.int8)
-            + (homalt >= min_snps).astype(np.int8)) >= gens
+    res = ((homref >= min_samples_per_genotype).astype(np.int8)
+            + (het >= min_samples_per_genotype).astype(np.int8)
+            + (homalt >= min_samples_per_genotype).astype(np.int8)) >= unique_genotypes
+    if return_counts:
+        return res, [homref, het, homalt]
+    return res
+
+
+def find_testable_snps(gt_matrix, min_samples_per_genotype=3, unique_genotypes=2, ma_frac=0.05):
+    # todo: prettify
+    valid_snps_mask, (homref, het, homalt) = filter_by_genotypes_counts(gt_matrix, 
+        min_samples_per_genotype=min_samples_per_genotype, unique_genotypes=unique_genotypes, return_counts=True)
     ma_passing = np.minimum(homref, homalt) * 2  + het >= ma_frac * gt_matrix.shape[1]
-    return ma_passing * enough_gens
+    return ma_passing * valid_snps_mask
 
 
 def find_snps_per_dhs(phenotype_df, variant_df, window):
@@ -261,12 +268,19 @@ def n_unique_last_axis(matrix):
     return matrix.shape[-1] - ((a_s[..., :-1] == a_s[..., 1:]) | (a_s[..., :-1] == 0)).sum(axis=-1)
 
 
-def find_valid_samples(genotypes, cell_types, threshold=2):
+def find_valid_samples(genotypes, cell_types, min_samples_per_genotype=3, unique_genotypes=3):
     # cell_types - [cell_type x sample]
     # genotypes # [SNP x sample]
-    gen_pseudo = (genotypes + 1)[:, None, :]  # [SNP x 1 x sample]
-    res = np.squeeze(n_unique_last_axis(cell_types[None, :, :] * gen_pseudo) >= threshold)  # [SNP x cell_type]
-    return (np.matmul(res, cell_types) * (genotypes != -1)).astype(bool)  # [SNP x sample]
+    res = np.zeros(genotypes.shape, dtype=bool)
+    for snp_idx, snp_samples in enumerate(genotypes + 1):
+        snp_genotype_by_cell_type = cell_types * snp_samples[None, :] - 1 # [cell_type x sample]
+        valid_cell_types_mask = filter_by_genotypes_counts(snp_genotype_by_cell_type,
+            min_samples_per_genotype=min_samples_per_genotype,
+            unique_genotypes=unique_genotypes
+            )
+        res[snp_idx, :] = np.any(cell_types[valid_cell_types_mask, :] != 0, axis=0)
+
+    return res * (genotypes != -1).astype(bool)  # [SNP x sample]
 
 
 # Too large function! TODO: move preprocessing to smaller functions
