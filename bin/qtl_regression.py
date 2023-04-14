@@ -68,6 +68,7 @@ class QTLmapper:
         XtX = np.matmul(np.transpose(X), X)
         XtY = np.matmul(np.transpose(X), Y)
         XtXinv = np.linalg.inv(XtX)
+
         coeffs = np.matmul(XtXinv, XtY)
 
         Y_predicted = np.matmul(X, coeffs)
@@ -120,17 +121,18 @@ class QTLmapper:
                 continue
 
             snp_phenotypes = phenotype_matrix[valid_samples][:, None]  # [samples x 1]
-
-            snp_stats, coeffs = self.process_snp(snp_phenotypes=snp_phenotypes,
-                                         snp_genotypes=snp_genotypes,
-                                         residualizer=residualizer)
-
+            try:
+                snp_stats, coeffs = self.process_snp(snp_phenotypes=snp_phenotypes,
+                                            snp_genotypes=snp_genotypes,
+                                            residualizer=residualizer)
+            except np.linalg.LinAlgError:
+                continue
 
             snp_id, snp_pos = snps_data.iloc[snp_index][['variant_id', 'pos']]
 
             to_add = np.repeat(np.array([snp_id, dhs_data['chunk_id']])[None, ...],
                 valid_design_cols_indices.shape[0], axis=0)
-            print(coeffs[0].shape, coeffs[1].shape, valid_design_cols_indices.shape)
+
             stack = np.stack([valid_design_cols_indices, *coeffs]).T
             
             coeffs_res.append(np.concatenate([to_add, stack], axis=1))
