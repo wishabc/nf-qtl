@@ -12,12 +12,10 @@ from sklearn.preprocessing import OneHotEncoder
 header = [
     "#chr", "start", "end", "chunk_id", "summit",
     'variant_id', 'distance_to_summit',
-    'n_samples', 'n_cell_types',
+    'n_samples',
     'n_hom_ref', 'n_het', 'n_hom_alt',
-    'f', 'f_pval',
-    'b', 'b_se',
-    'r2',
-    'sse', 'ssr', 'df_model',
+    'coeffs', 'coeffs_se',
+    'ss_model', 'ss_residuals', 'df_model', 'df_residuals'
 ]
 
 
@@ -29,7 +27,7 @@ class Residualizer:
         if self.dof == 0:
             self.Q = None
         else:
-            M = remove_redundant_columns(C) # to make qr more stable
+            M, _ = remove_redundant_columns(C) # to make qr more stable
             self.Q, _ = np.linalg.qr(M - M.mean(axis=0))
 
         
@@ -67,30 +65,42 @@ class QTLmapper:
         self.include_interaction = is_cell_specific and include_interaction
 
     @staticmethod
-    def process_snp(snp_phenotypes, snp_genotypes, residualizer):
+    def fit_regression(X, Y, df_model, df_residuals):
+        XtX = np.matmul(np.transpose(X), X)
+        XtY = np.matmul(np.transpose(X), Y)
+        XtXinv = np.linalg.inv(XtX)
+        coeffs = np.matmul(XtXinv, XtY)
+        Y_predicted = np.matmul(X, coeffs)
+
+        # sum of squares 
+        ss_residuals = np.square(Y - Y_predicted).sum(0)
+        ss_model = np.square(Y_predicted - Y.mean(0, keepdims=True)).sum(0)
+        
+        # mean sum of squares
+        ms_residuals = ss_residuals / df_residuals
+        # coeffs standard error
+        coeffs_se = np.sqrt(XtXinv[np.eye(X.shape[1], dtype=bool)][..., None] * ms_residuals)
+
+        return [ss_model, ss_residuals, df_model, df_residuals], [coeffs, coeffs_se]
+
+    def process_snp(self, snp_phenotypes, snp_genotypes, residualizer):
         design = residualizer.transform(snp_genotypes.T).T
         phenotype_residuals = residualizer.transform(snp_phenotypes.T).T
-
-        res = sm.OLS(phenotype_residuals, design).fit()
-        dfn = design.shape[1] + residualizer.n
-        dfd = design.shape[0] - dfn
         n_hom_ref, n_het, n_hom_alt = np.unique(snp_genotypes, return_counts=True)[1]
-        bse = res.bse[0] * np.sqrt(design.shape[0] - design.shape[1]) / np.sqrt(dfd)
-        f = (res.ess / dfn) / (res.ssr / dfd)
-        f_pval = st.f.sf(f, dfn=dfn, dfd=dfd)
+        df_model = design.shape[1]
+        df_residuals = design.shape[0] - df_model - residualizer.n
+        snp_stats, coeffs = self.fit_regression(design, phenotype_residuals, df_model, df_residuals)
 
         return [
             design.shape[0],  # samples tested
-            np.nan,  # cell types
             n_hom_ref, n_het, n_hom_alt,
-            f, f_pval,
-            res.params[0], bse,
-            res.rsquared, res.ess, res.ssr, dfn
-        ]
+            *snp_stats # coeffs, coeffs_se, ss_model, ss_residuals, df_model, df_residals
+        ], coeffs
 
     def process_dhs(self, phenotype_matrix, genotype_matrix, samples_per_snp,
                     dhs_residualizers, snps_data, dhs_data):
         res = []
+        coeffs_res = []
         dhs_data_as_list = dhs_data.to_list()
         for snp_index, genotypes in enumerate(genotype_matrix):
             valid_samples = samples_per_snp[snp_index]
@@ -99,31 +109,52 @@ class QTLmapper:
             if residualizer.Q is None:
                 continue
             if self.include_interaction:
-                sample_cell_types = remove_redundant_columns(self.cell_type_data[valid_samples, :])  # [samples x cell_types]
-
-                # add interaction term
-                snp_genotypes = np.concatenate([snp_genotypes, snp_genotypes * sample_cell_types], axis=1)
-            
+                # calculate interaction
+                interaction = snp_genotypes * self.cell_type_data[valid_samples, :]  # [samples x cell_types]
+                snp_genotypes, valid_design_cols_mask = remove_redundant_columns(
+                    np.concatenate([snp_genotypes, interaction], axis=1))
+                valid_design_cols_indices = np.where(valid_design_cols_mask)
+            else:
+                valid_design_cols_indices = np.ones(1)
             if snp_genotypes.shape[0] - snp_genotypes.shape[1] - residualizer.n < 1:
                 continue
+
             snp_phenotypes = phenotype_matrix[valid_samples][:, None]  # [samples x 1]
 
-            snp_stats = self.process_snp(snp_phenotypes=snp_phenotypes,
+            snp_stats, coeffs = self.process_snp(snp_phenotypes=snp_phenotypes,
                                          snp_genotypes=snp_genotypes,
                                          residualizer=residualizer)
 
+
             snp_id, snp_pos = snps_data.iloc[snp_index][['variant_id', 'pos']]
+
+            to_add = np.repeat(np.array([snp_id, dhs_data['chunk_id']])[None, ...],
+                valid_design_cols_indices.shape[0], axis=0)
+            stack = np.stack([valid_design_cols_indices, *coeffs]).T
+            
+            coeffs_res.append(np.concatenate([to_add, stack], axis=1))
+
             res.append([
                 *dhs_data_as_list,
                 snp_id,
                 snp_pos - dhs_data['summit'],  # dist to "TSS"
                 *snp_stats
             ])
-        return res
+        return res, coeffs_res
+
+    @staticmethod
+    def post_processing(df):
+        # Do in vectorized manner
+        df['f_stat'] = df.eval('(ss_model / df_model) / (ss_residuals / df_residuals)')
+        df['log_f_pval'] = -st.f.logsf(df['f_stat'], dfn=df['df_model'], dfd=df['df_residuals'])
+        df['minor_allele_count'] = df[['n_hom_ref', 'n_hom_alt']].min(axis=1) * 2 + df['n_het']
+        return df
+
 
     def map_qtl(self):
         # optionally do in parallel
-        res = []
+        stats_res = []
+        coefs_res = []
         for dhs_idx, snps_indices in enumerate(tqdm(self.snps_per_phenotype)):
             # sub-setting matrices
             phenotype = np.squeeze(self.phenotype_matrix[dhs_idx, :])
@@ -133,30 +164,37 @@ class QTLmapper:
             current_dhs_data = self.dhs_data.iloc[dhs_idx]
             current_snps_data = self.snps_data.iloc[snps_indices]
 
-            stats = self.process_dhs(phenotype_matrix=phenotype,
+            stats, coefs = self.process_dhs(phenotype_matrix=phenotype,
                                      genotype_matrix=genotypes,
                                      samples_per_snp=samples_per_snp,
                                      dhs_residualizers=dhs_residualizers,
                                      snps_data=current_snps_data,
                                      dhs_data=current_dhs_data,
                                      )
-            res.extend(stats)
-        return pd.DataFrame(res, columns=header)
+            stats_res.extend(stats)
+            coefs_res.extend(coefs)
+
+        stats_res = pd.DataFrame(stats_res, columns=header)
+        coefs_res = pd.DataFrame(np.concatenate(coefs_res), 
+            columns=['variant_id', 'chunk_id', 'cell_type_idx', 'coeff', 'coeff_se'])
+        return self.post_processing(stats_res), coefs_res
 
 
-def find_testable_snps(gt_matrix, min_snps, gens=2):
+def find_testable_snps(gt_matrix, min_snps, gens=2, ma_frac=0.05):
     # todo: prettify
     homref = (gt_matrix == 0).sum(axis=1)
     het = (gt_matrix == 1).sum(axis=1)
     homalt = (gt_matrix == 2).sum(axis=1)
-    return ((homref >= min_snps).astype(np.int8)
+    enough_gens = ((homref >= min_snps).astype(np.int8)
             + (het >= min_snps).astype(np.int8)
             + (homalt >= min_snps).astype(np.int8)) >= gens
+    ma_passing = np.minimum(homref, homalt) * 2  + het >= ma_frac * gt_matrix.shape[1]
+    return ma_passing * enough_gens
 
 
 def find_snps_per_dhs(phenotype_df, variant_df, window):
     phenotype_len = len(phenotype_df.index)
-    res = np.zeros((phenotype_len, len(variant_df.index)), dtype=bool)
+    snps_per_dhs = np.zeros((phenotype_len, len(variant_df.index)), dtype=bool)
     invalid_phens_indices = []
     unique_chrs = variant_df['chrom'].unique()
     per_chr_groups = None
@@ -175,7 +213,7 @@ def find_snps_per_dhs(phenotype_df, variant_df, window):
         upper_bound = np.searchsorted(snp_positions, row['summit'] + window, side='right')
         if lower_bound != upper_bound:
             snps_indices = chr_df['index'].to_numpy()[lower_bound:upper_bound - 1]  # returns one just before
-            res[phen_idx, snps_indices] = True
+            snps_per_dhs[phen_idx, snps_indices] = True
         else:
             invalid_phens_indices.append(phen_idx)
 
@@ -183,7 +221,7 @@ def find_snps_per_dhs(phenotype_df, variant_df, window):
         print(f'** dropping {len(invalid_phens_indices)} phenotypes without variants in cis-window')
     invalid_phens_mask = np.zeros(phenotype_len, dtype=bool)
     invalid_phens_mask[invalid_phens_indices] = True
-    return res, invalid_phens_mask
+    return snps_per_dhs, invalid_phens_mask
 
 
 def unpack_region(s):
@@ -193,7 +231,8 @@ def unpack_region(s):
 
 
 def remove_redundant_columns(matrix):
-    return matrix[:, np.all(matrix == 0, axis=0)]
+    cols_mask = np.any(matrix != 0, axis=0)
+    return matrix[:, cols_mask], cols_mask
 
 
 def n_unique_last_axis(matrix):
@@ -209,6 +248,7 @@ def find_valid_samples(genotypes, cell_types, threshold=2):
     return (np.matmul(res, cell_types) * (genotypes != -1)).astype(bool)  # [SNP x sample]
 
 
+# Too large function! TODO: move preprocessing to smaller functions
 def main(chunk_id, masterlist_path, non_nan_mask_path, phenotype_matrix_path,
          samples_order_path, plink_prefix, metadata_path, outpath, is_cell_specific=False,
          include_interaction=False):
@@ -241,6 +281,8 @@ def main(chunk_id, masterlist_path, non_nan_mask_path, phenotype_matrix_path,
 
     # ---- Read genotype data in a bigger window ------
     window = 500_000
+    allele_counts = 50
+
     bim, fam, bed = read_plink(plink_prefix)
     bed = 2 - bed
     bed[np.isnan(bed)] = -1
@@ -344,9 +386,9 @@ def main(chunk_id, masterlist_path, non_nan_mask_path, phenotype_matrix_path,
         is_cell_specific=is_cell_specific,
         include_interaction=include_interaction
     )
-    res = qtl_mapper.map_qtl()
+    res, coefs = qtl_mapper.map_qtl()
     print(f"Processing finished in {time.perf_counter() - t}s")
-    return res
+    return res, coefs
 
 
 if __name__ == '__main__':
@@ -368,7 +410,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    result = main(
+    result, coefs = main(
         chunk_id=args.chunk_id,
         masterlist_path=args.index_file,
         non_nan_mask_path=args.mask,
@@ -380,4 +422,5 @@ if __name__ == '__main__':
         metadata_path=args.metadata,
         include_interaction=args.with_interaction
     )
-    result.to_csv(args.outpath, sep='\t', index=False)
+    result.to_csv(f'{args.outpath}.result.tsv', sep='\t', index=False)
+    coefs.to_csv(f'{args.outpath}.coefs.tsv', sep='\t', index=False)

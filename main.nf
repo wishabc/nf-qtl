@@ -109,7 +109,7 @@ process qtl_regression {
 		tuple val(genome_chunk), path(name)
 
 	script:
-	name = "${genome_chunk}.qtl_results.tsv"
+	name = "${genome_chunk}.qtl_results."
 	plink_prefix = "${plink_files[0].simpleName}" // Assumes that prefix of all the files is the same and doesn't contain .
 	cell_spec = params.cell_spec ? "--cell_spec" : ""
 	interaction = params.interaction ? "--with_interaction" : ""
