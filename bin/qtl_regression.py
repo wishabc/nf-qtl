@@ -80,6 +80,9 @@ class QTLmapper:
         ms_residuals = ss_residuals / df_residuals
         if np.any(XtXinv[np.eye(X.shape[1], dtype=bool)][..., None] < 0):
             print('Something is off')
+            print(df_model, df_residuals)
+            np.save('X.npy', X)
+            np.save('Y.npy', Y)
             print(XtXinv[np.eye(X.shape[1], dtype=bool)][..., None])
             raise AssertionError
         # coeffs standard error
