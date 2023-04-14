@@ -215,14 +215,16 @@ def filter_by_genotypes_counts(gt_matrix, min_samples_per_genotype, unique_genot
     return res
 
 
-def find_testable_snps(gt_matrix, min_samples_per_genotype=3, unique_genotypes=2, ma_frac=0.05):
+def find_testable_snps(gt_matrix, min_samples_per_genotype=3, unique_genotypes=2, ma_frac=None):
     # todo: prettify
     valid_snps_mask, (homref, het, homalt) = filter_by_genotypes_counts(gt_matrix, 
         min_samples_per_genotype=min_samples_per_genotype, unique_genotypes=unique_genotypes, return_counts=True)
+    if ma_frac is None:
+        return valid_snps_mask
     ma_passing = np.minimum(homref, homalt) * 2  + het >= ma_frac * gt_matrix.shape[1]
     return ma_passing * valid_snps_mask
 
-def find_valid_samples(genotypes, cell_types, min_samples_per_genotype=3, unique_genotypes=3):
+def find_valid_samples(genotypes, cell_types, min_samples_per_genotype=3, unique_genotypes=3, n_cell_types=2):
     # cell_types - [cell_type x sample]
     # genotypes # [SNP x sample]
     res = np.zeros(genotypes.shape, dtype=bool)
@@ -236,7 +238,7 @@ def find_valid_samples(genotypes, cell_types, min_samples_per_genotype=3, unique
         if valid_cell_types_mask.sum() == 0:
             continue
         print(np.where(valid_cell_types_mask))
-        res[snp_idx, :] = np.any(cell_types[valid_cell_types_mask, :] != 0, axis=0)
+        res[snp_idx, :] = np.sum(cell_types[valid_cell_types_mask, :] != 0, axis=0) >= n_cell_types
 
     return res * (genotypes != -1).astype(bool) # [SNP x sample]
 
@@ -390,7 +392,7 @@ def main(chunk_id, masterlist_path, non_nan_mask_path, phenotype_matrix_path,
         valid_samples = find_valid_samples(bed, ohe_cell_types.T, 3, 3)  # [SNPs x samples]
         before_n = (bed != -1).sum()
         bed[~valid_samples] = -1
-        testable_snps = find_testable_snps(bed, min_samples_per_genotype=3, unique_genotypes=3, ma_frac=allele_frac)
+        testable_snps = find_testable_snps(bed, min_samples_per_genotype=3, unique_genotypes=3)
         bed = bed[testable_snps, :]  # [SNPs x indivs]
         snps_per_dhs = snps_per_dhs[:, testable_snps]  # [DHS x SNPs] boolean matrix
         valid_samples = valid_samples[testable_snps, :]
