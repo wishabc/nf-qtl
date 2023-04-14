@@ -328,7 +328,7 @@ def main(chunk_id, masterlist_path, non_nan_mask_path, phenotype_matrix_path,
     bed = bed[snps_index, :].compute()
 
     # filter SNPs with homref, homalt and hets present
-    testable_snps = find_testable_snps(bed, min_snps=3, gens=3, ma_frac=allele_frac)
+    testable_snps = find_testable_snps(bed, min_samples_per_genotype=3, unique_genotypes=3, ma_frac=allele_frac)
     bed = bed[testable_snps, :]  # [SNPs x indivs]
 
     bim = bim.iloc[snps_index].iloc[testable_snps].reset_index(drop=True)
