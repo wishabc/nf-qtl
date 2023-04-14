@@ -148,8 +148,8 @@ class QTLmapper:
         df['f_stat'] = ((df['ss_model'] / df['df_model']) / (df['ss_residuals'] / df['df_residuals'])).astype(float)
         df['log_f_pval'] = -st.f.logsf(
             df['f_stat'].to_numpy(),
-            dfd=df['df_model'].to_numpy(),
-            dfn=df['df_residuals'].to_numpy())
+            dfd=df['df_residuals'].to_numpy(),
+            dfn=df['df_model'].to_numpy())
 
         df['minor_allele_count'] = df[['n_hom_ref', 'n_hom_alt']].min(axis=1) * 2 + df['n_het']
         return df
