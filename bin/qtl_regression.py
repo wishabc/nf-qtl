@@ -70,6 +70,7 @@ class QTLmapper:
         XtY = np.matmul(np.transpose(X), Y)
         XtXinv = np.linalg.inv(XtX)
         coeffs = np.matmul(XtXinv, XtY)
+
         Y_predicted = np.matmul(X, coeffs)
 
         # sum of squares 
@@ -130,6 +131,7 @@ class QTLmapper:
 
             to_add = np.repeat(np.array([snp_id, dhs_data['chunk_id']])[None, ...],
                 valid_design_cols_indices.shape[0], axis=0)
+            print(valid_design_cols_indices.shape, coeffs[0].shape, coeffs[1].shape)
             stack = np.stack([valid_design_cols_indices, *coeffs]).T
             
             coeffs_res.append(np.concatenate([to_add, stack], axis=1))
