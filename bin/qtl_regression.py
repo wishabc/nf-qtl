@@ -146,7 +146,7 @@ class QTLmapper:
     def post_processing(df):
         # Do in vectorized manner
         df['f_stat'] = (df['ss_model'] / df['df_model']) / (df['ss_residuals'] / df['df_residuals'])
-        print(df['f_stat'].to_numpy().shape, df['f_stat'].to_numpy().value_counts().head())
+        print(df['f_stat'].to_numpy().shape, df['f_stat'].to_numpy().dtype)
         df['log_f_pval'] = -st.f.logsf(
             df['f_stat'].to_numpy(),
             dfd=df['df_model'].to_numpy(),
