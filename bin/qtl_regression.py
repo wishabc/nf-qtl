@@ -23,6 +23,8 @@ class Residualizer:
         # center and orthogonalize
         self.n = np.linalg.matrix_rank(C)
         self.dof = C.shape[0] - self.n
+        # debug
+        self.C = C
         if self.dof == 0:
             self.Q = None
         else:
@@ -96,8 +98,14 @@ class QTLmapper:
         n_hom_ref, n_het, n_hom_alt = np.unique(snp_genotypes, return_counts=True)[1]
         df_model = design.shape[1]
         df_residuals = design.shape[0] - df_model - residualizer.n
-        snp_stats, coeffs = self.fit_regression(design, phenotype_residuals,
-            df_model, df_residuals)
+        try:
+            snp_stats, coeffs = self.fit_regression(design, phenotype_residuals,
+                df_model, df_residuals)
+        except AssertionError:
+            np.save('X_initial.npy', snp_genotypes)
+            np.save('Y_initial.npy', snp_phenotypes)
+            np.save('residualizer.npy', residualizer.C)
+            raise
 
         return [
             design.shape[0],  # samples tested
@@ -157,10 +165,10 @@ class QTLmapper:
         # Do in vectorized manner
         df['minor_allele_count'] = df[['n_hom_ref', 'n_hom_alt']].min(axis=1) * 2 + df['n_het']
         df['f_stat'] = ((df['ss_model'] / df['df_model']) / (df['ss_residuals'] / df['df_residuals'])).astype(float)
-        df['log_f_pval'] = -st.f.logsf(
+        df['log10_f_pval'] = -st.f.logsf(
             df['f_stat'].to_numpy(),
             dfd=df['df_residuals'].to_numpy(),
-            dfn=df['df_model'].to_numpy())
+            dfn=df['df_model'].to_numpy()) / np.log(10)
         return df
 
 
