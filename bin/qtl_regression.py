@@ -281,7 +281,7 @@ def main(chunk_id, masterlist_path, non_nan_mask_path, phenotype_matrix_path,
 
     # ---- Read genotype data in a bigger window ------
     window = 500_000
-    allele_counts = 50
+    allele_frac = 0.05
 
     bim, fam, bed = read_plink(plink_prefix)
     bed = 2 - bed
@@ -293,7 +293,7 @@ def main(chunk_id, masterlist_path, non_nan_mask_path, phenotype_matrix_path,
     bed = bed[snps_index, :].compute()
 
     # filter SNPs with homref, homalt and hets present
-    testable_snps = find_testable_snps(bed, min_snps=3, gens=3)
+    testable_snps = find_testable_snps(bed, min_snps=3, gens=3, ma_frac=allele_frac)
     bed = bed[testable_snps, :]  # [SNPs x indivs]
 
     bim = bim.iloc[snps_index].iloc[testable_snps].reset_index(drop=True)
@@ -356,7 +356,7 @@ def main(chunk_id, masterlist_path, non_nan_mask_path, phenotype_matrix_path,
         valid_samples = find_valid_samples(bed, ohe_cell_types.T, 3)  # [SNPs x samples]
         before_n = (bed != -1).sum()
         bed[~valid_samples] = -1
-        testable_snps = find_testable_snps(bed, min_snps=3, gens=3)
+        testable_snps = find_testable_snps(bed, min_snps=3, gens=3, ma_frac=allele_frac)
         bed = bed[testable_snps, :]  # [SNPs x indivs]
         snps_per_dhs = snps_per_dhs[:, testable_snps]  # [DHS x SNPs] boolean matrix
         valid_samples = valid_samples[testable_snps, :]
