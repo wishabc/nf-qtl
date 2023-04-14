@@ -235,6 +235,7 @@ def find_valid_samples(genotypes, cell_types, min_samples_per_genotype=3, unique
             )
         if valid_cell_types_mask.sum() == 0:
             continue
+        print(np.where(valid_cell_types_mask))
         res[snp_idx, :] = np.any(cell_types[valid_cell_types_mask, :] != 0, axis=0)
 
     return res * (genotypes != -1).astype(bool) # [SNP x sample]
