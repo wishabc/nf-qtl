@@ -14,7 +14,6 @@ header = [
     'variant_id', 'distance_to_summit',
     'n_samples',
     'n_hom_ref', 'n_het', 'n_hom_alt',
-    'coeffs', 'coeffs_se',
     'ss_model', 'ss_residuals', 'df_model', 'df_residuals'
 ]
 
