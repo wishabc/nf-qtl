@@ -391,7 +391,6 @@ def main(chunk_id, masterlist_path, non_nan_mask_path, phenotype_matrix_path,
         valid_samples = find_valid_samples(bed, ohe_cell_types.T, 3, 3)  # [SNPs x samples]
         before_n = (bed != -1).sum()
         bed[~valid_samples] = -1
-        print(valid_samples.sum())
         testable_snps = find_testable_snps(bed, min_samples_per_genotype=3, unique_genotypes=3)
         bed = bed[testable_snps, :]  # [SNPs x indivs]
         snps_per_dhs = snps_per_dhs[:, testable_snps]  # [DHS x SNPs] boolean matrix
@@ -404,6 +403,9 @@ def main(chunk_id, masterlist_path, non_nan_mask_path, phenotype_matrix_path,
         ohe_cell_types = None
         covariates_np = sample_pcs
 
+    if valid_samples.sum() == 0:
+        print('No samples left after filtering')
+        exit(0)
     # calc residualizer for each variant
     residualizers = np.array([Residualizer(covariates_np[snp_samples_idx, :])
                               for snp_samples_idx in tqdm(valid_samples)])  # [SNPs x covariates]
