@@ -222,6 +222,23 @@ def find_testable_snps(gt_matrix, min_samples_per_genotype=3, unique_genotypes=2
     ma_passing = np.minimum(homref, homalt) * 2  + het >= ma_frac * gt_matrix.shape[1]
     return ma_passing * valid_snps_mask
 
+def find_valid_samples(genotypes, cell_types, min_samples_per_genotype=3, unique_genotypes=3):
+    # cell_types - [cell_type x sample]
+    # genotypes # [SNP x sample]
+    res = np.zeros(genotypes.shape, dtype=bool)
+    for snp_idx, snp_samples in enumerate(genotypes):
+        snp_genotype_by_cell_type = cell_types * (snp_samples[None, :] + 1) - 1 # [cell_type x sample]
+        valid_cell_types_mask = filter_by_genotypes_counts(
+            snp_genotype_by_cell_type,
+            min_samples_per_genotype=min_samples_per_genotype,
+            unique_genotypes=unique_genotypes
+            )
+        if valid_cell_types_mask.sum() == 0:
+            continue
+        res[snp_idx, :] = np.any(cell_types[valid_cell_types_mask, :] != 0, axis=0)
+
+    return res * (genotypes != -1).astype(bool) # [SNP x sample]
+
 
 def find_snps_per_dhs(phenotype_df, variant_df, window):
     phenotype_len = len(phenotype_df.index)
@@ -264,22 +281,6 @@ def unpack_region(s):
 def remove_redundant_columns(matrix):
     cols_mask = np.any(matrix != 0, axis=0)
     return matrix[:, cols_mask], cols_mask
-
-
-def find_valid_samples(genotypes, cell_types, min_samples_per_genotype=3, unique_genotypes=3):
-    # cell_types - [cell_type x sample]
-    # genotypes # [SNP x sample]
-    res = np.zeros(genotypes.shape, dtype=bool)
-    for snp_idx, snp_samples in enumerate(genotypes):
-        snp_genotype_by_cell_type = cell_types * (snp_samples[None, :] + 1) - 1 # [cell_type x sample]
-        valid_cell_types_mask = filter_by_genotypes_counts(
-            snp_genotype_by_cell_type,
-            min_samples_per_genotype=min_samples_per_genotype,
-            unique_genotypes=unique_genotypes
-            )
-        res[snp_idx, :] = np.any(cell_types[valid_cell_types_mask, :] != 0, axis=0)
-
-    return res * (genotypes != -1).astype(bool) # [SNP x sample]
 
 
 # Too large function! TODO: move preprocessing to smaller functions
