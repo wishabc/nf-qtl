@@ -103,6 +103,8 @@ class QTLmapper:
             snp_stats, coeffs = self.fit_regression(design, phenotype_residuals,
                 df_model, df_residuals)
         except AssertionError:
+            stat, (hom_ref, het, hom_alt) = filter_by_genotypes_counts(residualizer.C[10:] * (snp_genotypes[:, 0] + 1) - 1, 3, 3, return_counts=True)
+            print(hom_ref.min(), het.min(), hom_alt.min())
             np.save('X_initial.npy', snp_genotypes)
             np.save('Y_initial.npy', snp_phenotypes)
             np.save('residualizer.npy', residualizer.C)
@@ -222,7 +224,8 @@ def find_testable_snps(gt_matrix, min_samples_per_genotype=3, unique_genotypes=2
     ma_passing = np.minimum(homref, homalt) * 2  + het >= ma_frac * gt_matrix.shape[1]
     return ma_passing * valid_snps_mask
 
-def find_valid_samples(genotypes, cell_types, min_samples_per_genotype=3, unique_genotypes=3, n_cell_types=2):
+def find_valid_samples(genotypes, cell_types, min_samples_per_genotype=3,
+    unique_genotypes=3, n_cell_types=2):
     # cell_types - [cell_type x sample]
     # genotypes # [SNP x sample]
     res = np.zeros(genotypes.shape, dtype=bool)
