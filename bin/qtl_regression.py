@@ -128,7 +128,7 @@ class QTLmapper:
             if self.include_interaction:
                 # calculate interaction
                 interaction = snp_genotypes * self.cell_type_data[valid_samples, :]  # [samples x cell_types]
-                snp_genotypes, valid_design_cols_mask = remove_redundant_columns(np.concatenate([snp_genotypes, interaction], axis=1))
+                snp_genotypes, valid_design_cols_mask = remove_redundant_columns(interaction)
                 valid_design_cols_indices = np.where(valid_design_cols_mask)[0]
             else:
                 valid_design_cols_indices = np.zeros(1, dtype=int)
@@ -385,9 +385,9 @@ def main(chunk_id, masterlist_path, non_nan_mask_path, phenotype_matrix_path,
         ohe_cell_types = ohe_enc.fit_transform(cell_types.reshape(-1, 1))
         # Filter out cell-types with less than 2 distinct genotypes
         valid_samples = find_valid_samples(bed, ohe_cell_types.T,
-            min_samples_per_genotype=3,
+            min_samples_per_genotype=10,
             unique_genotypes=3,
-            n_cell_types=4)  # [SNPs x samples]
+            n_cell_types=2)  # [SNPs x samples]
         before_n = (bed != -1).sum()
         bed[~valid_samples] = -1
         testable_snps = find_testable_snps(bed, min_samples_per_genotype=3, unique_genotypes=3)
