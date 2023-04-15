@@ -9,6 +9,7 @@ import time
 from tqdm import tqdm
 from sklearn.preprocessing import OneHotEncoder
 
+
 header = [
     "#chr", "start", "end", "chunk_id", "summit",
     'variant_id', 'distance_to_summit',
@@ -285,7 +286,7 @@ def remove_redundant_columns(matrix):
     return matrix[:, cols_mask], cols_mask
 
 
-# Too large function! TODO: move preprocessing to smaller functions
+# Too much code in one function! TODO: move preprocessing to smaller functions
 def main(chunk_id, masterlist_path, non_nan_mask_path, phenotype_matrix_path,
          samples_order_path, plink_prefix, metadata_path, outpath, is_cell_specific=False,
          include_interaction=False):
@@ -327,6 +328,7 @@ def main(chunk_id, masterlist_path, non_nan_mask_path, phenotype_matrix_path,
     # pos is 1-based, start is 0-based
     snps_index = bim.eval(f'chrom == "{chrom}" & pos >= {start - window + 1}'
                           f' & pos < {end + window}').to_numpy().astype(bool)
+
     bed = bed[snps_index, :].compute()
 
     # filter SNPs with homref, homalt and hets present
@@ -388,7 +390,10 @@ def main(chunk_id, masterlist_path, non_nan_mask_path, phenotype_matrix_path,
         ohe_enc = OneHotEncoder(handle_unknown='ignore', sparse_output=False)
         ohe_cell_types = ohe_enc.fit_transform(cell_types.reshape(-1, 1))
         # Filter out cell-types with less than 2 distinct genotypes
-        valid_samples = find_valid_samples(bed, ohe_cell_types.T, min_samples_per_genotype=3, unique_genotypes=3, n_cell_types=2)  # [SNPs x samples]
+        valid_samples = find_valid_samples(bed, ohe_cell_types.T,
+            min_samples_per_genotype=10,
+            unique_genotypes=2,
+            n_cell_types=2)  # [SNPs x samples]
         before_n = (bed != -1).sum()
         bed[~valid_samples] = -1
         testable_snps = find_testable_snps(bed, min_samples_per_genotype=2, unique_genotypes=3)
