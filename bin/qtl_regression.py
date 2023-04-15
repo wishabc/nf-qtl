@@ -287,7 +287,7 @@ def remove_redundant_columns(matrix):
 
 # Too much code in one function! TODO: move preprocessing to smaller functions
 def main(chunk_id, masterlist_path, non_nan_mask_path, phenotype_matrix_path,
-         samples_order_path, plink_prefix, metadata_path, outpath, is_cell_specific=False,
+         samples_order_path, plink_prefix, metadata_path, is_cell_specific=False,
          include_interaction=False):
     t = time.perf_counter()
     print('Processing started')
@@ -392,7 +392,7 @@ def main(chunk_id, masterlist_path, non_nan_mask_path, phenotype_matrix_path,
             n_cell_types=2)  # [SNPs x samples]
         before_n = (bed != -1).sum()
         bed[~valid_samples] = -1
-        testable_snps = find_testable_snps(bed, min_samples_per_genotype=2, unique_genotypes=3)
+        testable_snps = find_testable_snps(bed, min_samples_per_genotype=3, unique_genotypes=3)
         bed = bed[testable_snps, :]  # [SNPs x indivs]
         snps_per_dhs = snps_per_dhs[:, testable_snps]  # [DHS x SNPs] boolean matrix
         valid_samples = valid_samples[testable_snps, :]
@@ -454,7 +454,6 @@ if __name__ == '__main__':
         phenotype_matrix_path=args.phenotype_matrix,
         samples_order_path=args.samples_order,
         plink_prefix=args.plink_prefix,
-        outpath=args.outpath,
         is_cell_specific=args.cell_spec,
         metadata_path=args.metadata,
         include_interaction=args.with_interaction
