@@ -338,10 +338,7 @@ def main(chunk_id, masterlist_path, non_nan_mask_path, phenotype_matrix_path,
     bim = bim.iloc[snps_index].iloc[testable_snps].reset_index(drop=True)
     # use eval instead?
     if bim.empty:
-        print(f'No SNPs passing filters found for {chunk_id}, exiting')
-        with open(outpath, 'w') as f:
-            f.write('\t'.join(header))
-        exit(0)
+        return None
     bim['variant_id'] = bim.apply(
         lambda row: f"{row['chrom']}_{row['pos']}_{row['snp']}_{row['a0']}_{row['a1']}",
         axis=1
@@ -409,8 +406,7 @@ def main(chunk_id, masterlist_path, non_nan_mask_path, phenotype_matrix_path,
         covariates_np = sample_pcs
 
     if valid_samples.sum() == 0:
-        print('No SNPs left after filtering')
-        exit(0)
+        return None
     # calc residualizer for each variant
     residualizers = np.array([Residualizer(covariates_np[snp_samples_idx, :])
                               for snp_samples_idx in tqdm(valid_samples)])  # [SNPs x covariates]
@@ -452,7 +448,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    result, coefs, cell_types = main(
+    result = main(
         chunk_id=args.chunk_id,
         masterlist_path=args.index_file,
         non_nan_mask_path=args.mask,
@@ -464,6 +460,13 @@ if __name__ == '__main__':
         metadata_path=args.metadata,
         include_interaction=args.with_interaction
     )
-    result.to_csv(f'{args.outpath}.result.tsv.gz', sep='\t', index=False)
+    if result is None:
+        print(f'No SNPs passing filters found for {args.chunk_id}, exiting')
+        with open(args.outpath, 'w') as f:
+            f.write('\t'.join(header))
+        exit(0)
+    regression_result, coefs, cell_types = result
+
+    regression_result.to_csv(f'{args.outpath}.result.tsv.gz', sep='\t', index=False)
     coefs.to_csv(f'{args.outpath}.coefs.tsv.gz', sep='\t', index=False)
     np.savetxt(f'{args.outpath}.cells_order.txt', cell_types, delimiter='\t')
