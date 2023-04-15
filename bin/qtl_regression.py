@@ -66,6 +66,8 @@ class QTLmapper:
         self.cell_type_data = cell_type_data
         self.include_interaction = is_cell_specific and include_interaction
 
+        self.singular_matrix_count = 0
+
     @staticmethod
     def fit_regression(X, Y, df_model, df_residuals):
         XtX = np.matmul(np.transpose(X), X)
@@ -76,22 +78,23 @@ class QTLmapper:
         Y_predicted = np.matmul(X, coeffs)
 
         # sum of squares 
-        ss_residuals = np.square(Y - Y_predicted).sum(0)
-        ss_model = np.square(Y_predicted - Y.mean(0, keepdims=True)).sum(0)
+        ss_residuals = np.square(Y - Y_predicted).sum()
+        ss_model = np.square(Y_predicted - Y.mean(0, keepdims=True)).sum()
         
         # mean sum of squares
         ms_residuals = ss_residuals / df_residuals
         if np.any(XtXinv[np.eye(X.shape[1], dtype=bool)][..., None] < 0):
-            print('Something is off')
-            print(df_model, df_residuals)
-            np.save('X.npy', X)
-            np.save('Y.npy', Y)
-            print(XtXinv[np.eye(X.shape[1], dtype=bool)][..., None])
-            raise AssertionError
+            raise np.linalg.LinAlgError()
+            # print('Something is off')
+            # print(df_model, df_residuals)
+            # np.save('X.npy', X)
+            # np.save('Y.npy', Y)
+            # print(XtXinv[np.eye(X.shape[1], dtype=bool)][..., None])
+            # raise AssertionError
         # coeffs standard error
         coeffs_se = np.sqrt(XtXinv[np.eye(X.shape[1], dtype=bool)][..., None] * ms_residuals)
 
-        return [ss_model[0], ss_residuals[0], df_model, df_residuals], [coeffs[:, 0], coeffs_se[:, 0]]
+        return [ss_model, ss_residuals, df_model, df_residuals], [coeffs[:, 0], coeffs_se[:, 0]]
 
     def process_snp(self, snp_phenotypes, snp_genotypes, residualizer):
         design = residualizer.transform(snp_genotypes.T).T
@@ -141,6 +144,7 @@ class QTLmapper:
                                             snp_genotypes=snp_genotypes,
                                             residualizer=residualizer)
             except np.linalg.LinAlgError:
+                self.singular_matrix_count += 1
                 continue
 
             snp_id, snp_pos = snps_data.iloc[snp_index][['variant_id', 'pos']]
@@ -422,6 +426,8 @@ def main(chunk_id, masterlist_path, non_nan_mask_path, phenotype_matrix_path,
         include_interaction=include_interaction
     )
     res, coefs = qtl_mapper.map_qtl()
+    if qtl_mapper.singular_matrix_count > 0:
+        print(f'{qtl_mapper.singular_matrix_count} SNPs excluded! Singular matrix.')
     print(f"Processing finished in {time.perf_counter() - t}s")
     return res, coefs, ohe_enc.categories_[0]
 
