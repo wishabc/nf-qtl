@@ -103,7 +103,7 @@ class QTLmapper:
             snp_stats, coeffs = self.fit_regression(design, phenotype_residuals,
                 df_model, df_residuals)
         except AssertionError:
-            stat, (hom_ref, het, hom_alt) = filter_by_genotypes_counts(residualizer.C[10:] * (snp_genotypes[:, 0] + 1) - 1, 3, 3, return_counts=True)
+            stat, (hom_ref, het, hom_alt) = filter_by_genotypes_counts(residualizer.C[:, 10:] * (snp_genotypes[:, 0] + 1) - 1, 3, 3, return_counts=True)
             print(hom_ref.min(), het.min(), hom_alt.min())
             np.save('X_initial.npy', snp_genotypes)
             np.save('Y_initial.npy', snp_phenotypes)
