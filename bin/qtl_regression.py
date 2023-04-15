@@ -238,6 +238,7 @@ def find_valid_samples(genotypes, cell_types, min_samples_per_genotype=3, unique
             )
         if valid_cell_types_mask.sum() == 0:
             continue
+        print(np.sum(cell_types[valid_cell_types_mask, :] != 0, axis=0).max())
         res[snp_idx, :] = np.sum(cell_types[valid_cell_types_mask, :] != 0, axis=0) >= n_cell_types
     print(res.sum())
     return res * (genotypes != -1).astype(bool) # [SNP x sample]
