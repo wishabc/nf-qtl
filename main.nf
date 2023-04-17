@@ -107,8 +107,7 @@ process qtl_regression {
 		path plink_files 	// Files are named as plink.<suffix>
 
 	output:
-		tuple val(genome_chunk), path("${name}.")
-		tuple val(genome_chunk), path("${name}.")
+		tuple val(genome_chunk), path("${name}.*")
 
 	script:
 	plink_prefix = "${plink_files[0].simpleName}" // Assumes that prefix of all the files is the same and doesn't contain .
@@ -150,12 +149,12 @@ workflow test {
 	plink_files = Channel.of("/net/seq/data2/projects/sabramov/ENCODE4/caqtl-analysis/output/plink/plink*")
 		.map(it -> file(it)).collect(sort: true, flat: true)
 
-	qtl_regression(genome_chunks, count_matrix, plink_files) | map(it -> it[1]) | collectFile(
-		name: "caqtl_results.tsv",
-		storeDir: "${params.outdir}",
-		skip: 1,
-		keepHeader: true
-	)
+	qtl_regression(genome_chunks, count_matrix, plink_files) | map(it -> it[1]) //| collectFile(
+	// 	name: "caqtl_results.tsv",
+	// 	storeDir: "${params.outdir}",
+	// 	skip: 1,
+	// 	keepHeader: true
+	// )
 }
 workflow {
 	caqtlCalling()
