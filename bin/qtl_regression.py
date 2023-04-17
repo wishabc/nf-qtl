@@ -8,6 +8,8 @@ import h5py
 import time
 from tqdm import tqdm
 from sklearn.preprocessing import OneHotEncoder
+from pathlib import Path
+
 
 
 header = [
@@ -464,8 +466,8 @@ if __name__ == '__main__':
     )
     if result is None:
         print(f'No SNPs passing filters found for {args.chunk_id}, exiting')
-        with open(f"{args.outpath}.result.tsv.gz", 'w') as f:
-            f.write('\t'.join(header))
+        Path(f"{args.outpath}.result.tsv.gz").touch()
+        Path(f"{args.outpath}.coefs.tsv.gz").touch()
         exit(0)
     regression_result, coefs, cell_types = result
 
