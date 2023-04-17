@@ -471,4 +471,4 @@ if __name__ == '__main__':
 
     regression_result.to_csv(f'{args.outpath}.result.tsv.gz', sep='\t', index=False)
     coefs.to_csv(f'{args.outpath}.coefs.tsv.gz', sep='\t', index=False)
-    np.savetxt(f'{args.outpath}.cells_order.txt', cell_types, delimiter='\t')
+    np.savetxt(f'{args.outpath}.cells_order.txt', cell_types, delimiter='\t', fmt="%s")
