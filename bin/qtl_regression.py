@@ -464,7 +464,7 @@ if __name__ == '__main__':
     )
     if result is None:
         print(f'No SNPs passing filters found for {args.chunk_id}, exiting')
-        with open(args.outpath, 'w') as f:
+        with open(f"{args.outpath}.result.tsv.gz", 'w') as f:
             f.write('\t'.join(header))
         exit(0)
     regression_result, coefs, cell_types = result
