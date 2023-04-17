@@ -99,6 +99,7 @@ process create_genome_chunks {
 process qtl_regression {
 	conda params.conda
 	tag "${genome_chunk}"
+	publishDir "${params.outdir}/chunks"
 
 	input:
 		each genome_chunk
@@ -106,7 +107,8 @@ process qtl_regression {
 		path plink_files 	// Files are named as plink.<suffix>
 
 	output:
-		tuple val(genome_chunk), path(name)
+		tuple val(genome_chunk), path("${name}.")
+		tuple val(genome_chunk), path("${name}.")
 
 	script:
 	plink_prefix = "${plink_files[0].simpleName}" // Assumes that prefix of all the files is the same and doesn't contain .
@@ -132,12 +134,12 @@ workflow caqtlCalling {
 	data = extract_gc_content() | gc_normalize_count_matrix
 	plink_files = make_plink()
 	genome_chunks = create_genome_chunks() | flatMap(n -> n.split())
-	qtl_regression(genome_chunks, data, plink_files) | collectFile(
-		name: "caqtl_results.tsv",
-		storeDir: params.outdir,
-		skip: 1,
-		keepHeader: true
-	)
+	qtl_regression(genome_chunks, data, plink_files) //| collectFile(
+	// 	name: "caqtl_results.tsv",
+	// 	storeDir: params.outdir,
+	// 	skip: 1,
+	// 	keepHeader: true
+	// )
 }
 workflow test {
 	genome_chunks = create_genome_chunks() | flatMap(n -> n.split())
