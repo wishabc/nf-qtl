@@ -115,6 +115,7 @@ process qtl_regression {
 	interaction = params.interaction ? "--with_interaction" : ""
 	name = "${genome_chunk}.qtl_results.${cell_spec.replaceAll('-', '')}${interaction.replaceAll('-', '')}"
 	"""
+	echo 1
 	python3 $moduleDir/bin/qtl_regression.py \
 		${genome_chunk} \
 		${params.samples_file} \
