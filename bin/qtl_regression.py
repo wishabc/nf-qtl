@@ -150,7 +150,11 @@ class QTLmapper:
                 continue
 
             snp_id, snp_pos = snps_data.iloc[snp_index][['variant_id', 'pos']]
-
+            if snp_id == 'chr9_91424965_rs3811125_T_C' and dhs_data['chunk_id'] == 'chunk2755_3853_5':
+                np.save('mask.npy', valid_design_cols_mask)
+                np.save('cell_types_valid_samples.npy', self.cell_type_data[valid_samples, :])
+                np.save('Genotypes.npy', snp_genotypes)
+                raise AssertionError
             to_add = np.repeat(np.array([snp_id, dhs_data['chunk_id']])[None, ...],
                 valid_design_cols_indices.shape[0], axis=0)
 
