@@ -383,7 +383,7 @@ def main(chunk_id, masterlist_path, non_nan_mask_path, phenotype_matrix_path,
         fam['indiv_id'].reset_index()
     ).set_index('ag_id').loc[samples_order, :]
 
-    ordered_meta.to_csv('ordered_meta.npy', sep='\t', index=False)
+    ordered_meta.to_csv('ordered_meta.tsv', sep='\t', index=False)
     difference = len(metadata.index) - len(ordered_meta.index)
     if difference != 0:
         print(f'{difference} samples has been filtered out!')
@@ -408,6 +408,8 @@ def main(chunk_id, masterlist_path, non_nan_mask_path, phenotype_matrix_path,
             unique_genotypes=3,
             n_cell_types=2)  # [SNPs x samples]
         before_n = (bed != -1).sum()
+        np.save('valid_samples_mat.npy', valid_samples)
+        np.save('initial_bed.npy', bed)
         bed[~valid_samples] = -1
         testable_snps = find_testable_snps(bed, min_samples_per_genotype=3, unique_genotypes=3)
         bed = bed[testable_snps, :]  # [SNPs x indivs]
