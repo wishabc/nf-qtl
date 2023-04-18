@@ -191,6 +191,11 @@ class QTLmapper:
             # sub-setting matrices
             phenotype = np.squeeze(self.phenotype_matrix[dhs_idx, :])
             genotypes = self.genotype_matrix[snps_indices, :]
+            if self.dhs_data.iloc[dhs_idx].loc['chunk_id'] == 'chunk2755_3853_5':
+                np.save('phenotype.npy', phenotype)
+                np.save('genotypes_window.npy', self.genotype_matrix)
+                self.snps_data.to_csv('snps_data.tsv', sep='\t', index=False)
+                raise AssertionError
             samples_per_snp = self.samples_per_snps[snps_indices, :]
             dhs_residualizers = self.residualizers[snps_indices]
             current_dhs_data = self.dhs_data.iloc[dhs_idx]
