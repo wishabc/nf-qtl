@@ -283,6 +283,7 @@ class QTLPreprocessing:
         )
         if self.valid_dhs is not None:
             self.valid_dhs = np.loadtxt(self.valid_dhs, dtype=bool)
+            self.dhs_masterlist = self.dhs_masterlist[self.valid_dhs]
         else:
             self.valid_dhs = np.ones(len(self.dhs_masterlist.index), dtype=bool)
         self.samples_order = np.loadtxt(self.samples_order, delimiter='\t', dtype=str)
