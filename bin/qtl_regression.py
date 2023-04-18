@@ -295,7 +295,6 @@ class QTLPreprocessing:
     def filter_dhs_matrix(self, dhs_filter):
         self.dhs_masterlist = self.dhs_masterlist[dhs_filter]
         with h5py.File(self.dhs_matrix, 'r') as f:
-            print(f['normalized_counts'], self.valid_dhs.sum())
             self.dhs_matrix = f['normalized_counts'][dhs_filter, :]  # [DHS x samples]
         assert (~np.isfinite(self.dhs_matrix)).sum() == 0
 
@@ -363,6 +362,7 @@ class QTLPreprocessing:
 
     def find_snps_per_dhs(self):
         phenotype_len = len(self.dhs_masterlist.index)
+        print(len(self.bim.index))
         self.snps_per_dhs = np.zeros((phenotype_len, len(self.bim.index)), dtype=bool)
         invalid_phens_indices = []
         unique_chrs = self.bim['chrom'].unique()
