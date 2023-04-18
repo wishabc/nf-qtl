@@ -194,6 +194,7 @@ class QTLmapper:
             if self.dhs_data.iloc[dhs_idx].loc['chunk_id'] == 'chunk2755_3853_5':
                 np.save('phenotype.npy', phenotype)
                 np.save('genotypes_window.npy', self.genotype_matrix)
+                np.save('snps_indices.npy', snps_indices)
                 self.snps_data.to_csv('snps_data.tsv', sep='\t', index=False)
                 raise AssertionError
             samples_per_snp = self.samples_per_snps[snps_indices, :]
