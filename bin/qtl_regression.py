@@ -281,7 +281,6 @@ class QTLPreprocessing:
         )
         if self.valid_dhs is not None:
             self.valid_dhs = np.loadtxt(self.valid_dhs, dtype=bool)
-            print(self.dhs_masterlist.shape, self.valid_dhs.shape, self.valid_dhs.sum())
             self.dhs_masterlist = self.dhs_masterlist[self.valid_dhs]
         else:
             self.valid_dhs = np.ones(len(self.dhs_masterlist.index), dtype=bool)
@@ -364,7 +363,7 @@ class QTLPreprocessing:
 
     def find_snps_per_dhs(self):
         phenotype_len = len(self.dhs_masterlist.index)
-        self.snps_per_dhs = np.zeros((phenotype_len, len(self.dhs_masterlist.index)), dtype=bool)
+        self.snps_per_dhs = np.zeros((phenotype_len, len(self.bim.index)), dtype=bool)
         invalid_phens_indices = []
         unique_chrs = self.bim['chrom'].unique()
         per_chr_groups = None
