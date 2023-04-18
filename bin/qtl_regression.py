@@ -229,11 +229,9 @@ class QTLPreprocessing:
     def transform(self):
         self.read_dhs_matrix_meta()
         # Change summit to start/end if needed
-        dhs_chunk_index = self.valid_dhs & (
-                (self.dhs_masterlist['#chr'] == self.chrom)
-                & (self.dhs_masterlist['summit'] >= self.start)
+        dhs_chunk_index = (self.dhs_masterlist['#chr'] == self.chrom) \
+                & (self.dhs_masterlist['summit'] >= self.start) \
                 & (self.dhs_masterlist['summit'] < self.end)
-        )
         self.filter_dhs_matrix(dhs_chunk_index)
 
         self.load_snp_data()
