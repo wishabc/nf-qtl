@@ -174,7 +174,7 @@ workflow test {
 		file("/net/seq/data2/projects/sabramov/ENCODE4/caqtl-analysis/output/matrix_counts.mask.txt")
 		))
 	plink_files = Channel.of("/net/seq/data2/projects/sabramov/ENCODE4/caqtl-analysis/output/plink/plink*")
-		| map(it -> file(it)).collect(sort: true, flat: true)
+		.map(it -> file(it)).collect(sort: true, flat: true)
 
 	qtl_regression(genome_chunks, count_matrix, plink_files, modes)
 		| groupTuple()
