@@ -345,8 +345,8 @@ def main(chunk_id, masterlist_path, non_nan_mask_path, phenotype_matrix_path,
     bim.iloc[snps_index].to_csv('bim.tsv', sep='\t', index=False)
     print(f'chrom == "{chrom}" & pos >= {start - window + 1}'
                           f' & pos < {end + window}')
-    np.save('bed_from_dask', bed)
     bed = bed[snps_index, :].compute()
+    np.save('bed_from_dask', bed)
 
     # filter SNPs with homref, homalt and hets present
     testable_snps = find_testable_snps(bed, min_samples_per_genotype=3, unique_genotypes=3, ma_frac=allele_frac)
