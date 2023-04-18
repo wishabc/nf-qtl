@@ -222,7 +222,6 @@ class QTLPreprocessing:
         else:
             self.chrom = self.start = self.end = None
 
-        self.dhs_chunk_index = self.samples_order = None
         self.bim = self.fam = self.bed = self.snps_per_dhs = self.cell_types_list = None
         self.metadata = self.ordered_meta = self.indiv2samples_idx = self.ohe_cell_types = None
         self.covariates = self.covariates_names = self.valid_samples = self.residualizers = None
