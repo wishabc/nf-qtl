@@ -358,11 +358,9 @@ class QTLPreprocessing:
         self.dhs_matrix = self.dhs_matrix[~invalid_phens, :]
         self.snps_per_dhs = self.snps_per_dhs[~invalid_phens, :]  # [DHS x SNPs] boolean matrix
         self.dhs_masterlist = self.dhs_masterlist.iloc[~invalid_phens, :].reset_index(drop=True)
-        print('SNP-DHS pairs -', self.snps_per_dhs.sum())
 
     def find_snps_per_dhs(self):
         phenotype_len = len(self.dhs_masterlist.index)
-        print(self.dhs_masterlist)
         self.snps_per_dhs = np.zeros((phenotype_len, len(self.bim.index)), dtype=bool)
         invalid_phens_indices = []
         unique_chrs = self.bim['chrom'].unique()

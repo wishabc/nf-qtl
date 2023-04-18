@@ -114,7 +114,6 @@ process qtl_regression {
 	plink_prefix = "${plink_files[0].simpleName}" // Assumes that prefix of all the files is the same and doesn't contain .
 	prefix = "${genome_chunk}.qtl_results.${mode}"
 	"""
-	echo 1
 	python3 $moduleDir/bin/qtl_regression.py \
 		${genome_chunk} \
 		${params.samples_file} \
