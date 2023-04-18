@@ -382,6 +382,8 @@ def main(chunk_id, masterlist_path, non_nan_mask_path, phenotype_matrix_path,
     ordered_meta = metadata[req_cols].merge(
         fam['indiv_id'].reset_index()
     ).set_index('ag_id').loc[samples_order, :]
+
+    ordered_meta.to_csv('ordered_meta.npy', sep='\t', index=False)
     difference = len(metadata.index) - len(ordered_meta.index)
     if difference != 0:
         print(f'{difference} samples has been filtered out!')
