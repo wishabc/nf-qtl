@@ -362,7 +362,7 @@ class QTLPreprocessing:
 
     def find_snps_per_dhs(self):
         phenotype_len = len(self.dhs_masterlist.index)
-        print(len(self.bim.index))
+        print(self.bim)
         self.snps_per_dhs = np.zeros((phenotype_len, len(self.bim.index)), dtype=bool)
         invalid_phens_indices = []
         unique_chrs = self.bim['chrom'].unique()
