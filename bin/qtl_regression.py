@@ -296,6 +296,7 @@ class QTLPreprocessing:
     def filter_dhs_matrix(self, dhs_filter):
         self.dhs_masterlist = self.dhs_masterlist[dhs_filter]
         with h5py.File(self.dhs_matrix, 'r') as f:
+            print(f['normalized_counts'], self.valid_dhs.sum())
             self.dhs_matrix = f['normalized_counts'][dhs_filter, :]  # [DHS x samples]
         assert (~np.isfinite(self.dhs_matrix)).sum() == 0
 
