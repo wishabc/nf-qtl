@@ -507,6 +507,7 @@ if __name__ == '__main__':
         print(f'No SNPs passing filters found for {args.chunk_id}, exiting')
         Path(f"{args.outpath}.result.tsv.gz").touch()
         Path(f"{args.outpath}.coefs.tsv.gz").touch()
+        Path(f'{args.outpath}.cells_order.txt').touch()
         exit(0)
     regression_result, coefficients, cell_types = result
 
