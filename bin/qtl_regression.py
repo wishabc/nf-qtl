@@ -293,7 +293,7 @@ class QTLPreprocessing:
         return chrom, int(start), int(end)
 
     def filter_dhs_matrix(self, dhs_filter):
-        self.dhs_masterlist = self.dhs_masterlist[dhs_filter]
+        self.dhs_masterlist = self.dhs_masterlist[dhs_filter].reset_index(drop=True)
         with h5py.File(self.dhs_matrix, 'r') as f:
             self.dhs_matrix = f['normalized_counts'][dhs_filter, :]  # [DHS x samples]
         assert (~np.isfinite(self.dhs_matrix)).sum() == 0
@@ -362,6 +362,7 @@ class QTLPreprocessing:
 
     def find_snps_per_dhs(self):
         phenotype_len = len(self.dhs_masterlist.index)
+        print(self.dhs_masterlist)
         self.snps_per_dhs = np.zeros((phenotype_len, len(self.bim.index)), dtype=bool)
         invalid_phens_indices = []
         unique_chrs = self.bim['chrom'].unique()
@@ -376,8 +377,6 @@ class QTLPreprocessing:
                 chr_df = per_chr_groups.get_group(chrom)
             snp_positions = chr_df['pos'].to_numpy()
 
-            print(self.snps_per_dhs.shape)
-            print(chr_df.index)
             # Change start/end to summit if needed
             lower_bound = np.searchsorted(snp_positions, row['summit'] + 1 - self.window)
             upper_bound = np.searchsorted(snp_positions, row['summit'] + self.window, side='right')
