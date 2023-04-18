@@ -108,11 +108,11 @@ process qtl_regression {
 		each mode
 
 	output:
-		tuple val(mode), path("${name}.result.tsv.gz"), path("${name}.coefs.tsv.gz"), path("${name}.cells_order.txt")
+		tuple val(mode), path("${prefix}.result.tsv.gz"), path("${prefix}.coefs.tsv.gz"), path("${prefix}.cells_order.txt")
 
 	script:
 	plink_prefix = "${plink_files[0].simpleName}" // Assumes that prefix of all the files is the same and doesn't contain .
-	name = "${genome_chunk}.qtl_results.${made}"
+	prefix = "${genome_chunk}.qtl_results.${mode}"
 	"""
 	echo 1
 	python3 $moduleDir/bin/qtl_regression.py \
@@ -123,7 +123,7 @@ process qtl_regression {
 		${params.index_file} \
 		${params.indivs_order} \
 		${plink_prefix} \
-		${name} \
+		${prefix} \
 		--mode ${mode}
 	"""
 }
