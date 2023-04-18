@@ -342,7 +342,7 @@ def main(chunk_id, masterlist_path, non_nan_mask_path, phenotype_matrix_path,
     # pos is 1-based, start is 0-based
     snps_index = bim.eval(f'chrom == "{chrom}" & pos >= {start - window + 1}'
                           f' & pos < {end + window}').to_numpy().astype(bool)
-    bim.to_csv('bim.tsv', sep='\t', index=False)
+    bim.iloc[snps_index].to_csv('bim.tsv', sep='\t', index=False)
     print(f'chrom == "{chrom}" & pos >= {start - window + 1}'
                           f' & pos < {end + window}')
     np.save('bed_from_dask', bed)
