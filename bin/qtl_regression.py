@@ -154,7 +154,7 @@ class QTLmapper:
                 np.save('valid_samples.npy', valid_samples)
                 np.save('mask.npy', valid_design_cols_mask)
                 np.save('cell_types_valid_samples.npy', self.cell_type_data[valid_samples, :])
-                np.save('Genotypes.npy', snp_genotypes)
+                np.save('Genotypes.npy', genotypes[valid_samples])
                 raise AssertionError
             to_add = np.repeat(np.array([snp_id, dhs_data['chunk_id']])[None, ...],
                 valid_design_cols_indices.shape[0], axis=0)
