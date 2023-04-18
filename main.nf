@@ -105,15 +105,14 @@ process qtl_regression {
 		each genome_chunk
 		tuple path(normalized_matrix), path(mask)
 		path plink_files 	// Files are named as plink.<suffix>
+		each mode
 
 	output:
-		tuple val(genome_chunk), path("${name}.*")
+		tuple val(mode), path("${name}.result.tsv.gz"), path("${name}.coefs.tsv.gz"), path("${name}.cells_order.txt")
 
 	script:
 	plink_prefix = "${plink_files[0].simpleName}" // Assumes that prefix of all the files is the same and doesn't contain .
-	cell_spec = params.cell_spec ? "--cell_spec" : ""
-	interaction = params.interaction ? "--with_interaction" : ""
-	name = "${genome_chunk}.qtl_results.${cell_spec.replaceAll('-', '')}${interaction.replaceAll('-', '')}"
+	name = "${genome_chunk}.qtl_results.${made}"
 	"""
 	echo 1
 	python3 $moduleDir/bin/qtl_regression.py \
@@ -125,8 +124,34 @@ process qtl_regression {
 		${params.indivs_order} \
 		${plink_prefix} \
 		${name} \
-		${cell_spec} \
-		${interaction}
+		--mode ${mode}
+	"""
+}
+
+process merge_files {
+	publishDir params.outdir
+	scratch true
+
+	input:
+		tuple val(mode), path(results), path(coeffs), path(cells_order)
+	
+	output:
+		path "${out_prefix}*"
+
+	script:
+	out_prefix = "caqtl_${mode}"
+	"""
+	echo "${results}" | tr " " "\n" > results.filelist.txt
+	echo "${coeffs}" | tr " " "\n" > coeffs.filelist.txt
+	echo "${cells_order}" | tr " " "\n" > cells_order.filelist.txt
+	python3 $moduleDir/bin/normalize_counts.py \
+		results.filelist.txt \
+		coeffs.filelist.txt \
+		cells_order.filelist.txt \
+		${out_prefix}
+
+	sort-bed ${out_prefix}.results.bed | bgzip -c > ${out_prefix}.results.bed.gz
+	sort-bed ${out_prefix}.coeffs.bed | bgzip -c > ${out_prefix}.coeffs.bed.gz
 	"""
 }
 
@@ -143,19 +168,17 @@ workflow caqtlCalling {
 }
 workflow test {
 	genome_chunks = create_genome_chunks() | flatMap(n -> n.split())
+	modes = Channel.of(params.modes.split(','))
 	count_matrix = Channel.of(tuple(
 		file("/net/seq/data2/projects/sabramov/ENCODE4/caqtl-analysis/output/matrix_counts.hdf5"),
 		file("/net/seq/data2/projects/sabramov/ENCODE4/caqtl-analysis/output/matrix_counts.mask.txt")
 		))
 	plink_files = Channel.of("/net/seq/data2/projects/sabramov/ENCODE4/caqtl-analysis/output/plink/plink*")
-		.map(it -> file(it)).collect(sort: true, flat: true)
+		| map(it -> file(it)).collect(sort: true, flat: true)
 
-	qtl_regression(genome_chunks, count_matrix, plink_files) | map(it -> it[1]) //| collectFile(
-	// 	name: "caqtl_results.tsv",
-	// 	storeDir: "${params.outdir}",
-	// 	skip: 1,
-	// 	keepHeader: true
-	// )
+	qtl_regression(genome_chunks, count_matrix, plink_files, modes)
+		| groupTuple()
+		| merge_files
 }
 workflow {
 	caqtlCalling()
