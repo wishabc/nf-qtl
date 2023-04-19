@@ -372,7 +372,7 @@ class QTLmapper:
             residualizer = dhs_residualizers[snp_index]
             if residualizer.Q is None:
                 continue
-            if self.mode == 'cell_type':
+            if self.mode == 'interaction':
                 # calculate interaction
                 interaction = snp_genotypes * self.cell_type_data[valid_samples, :]  # [samples x cell_types]
                 snp_genotypes, valid_design_cols_mask = remove_redundant_columns(interaction)
@@ -499,7 +499,7 @@ if __name__ == '__main__':
                                                     default=None)
     parser.add_argument('--mode', help='Specify to choose type of caQTL analysis. gt_only, cell_type or interaction',
                         default='gt_only', const='gt_only', nargs='?',
-                        choices=['cell_type', 'gt_only'])
+                        choices=['cell_type', 'interaction', 'gt_only'])
 
     args = parser.parse_args()
 
