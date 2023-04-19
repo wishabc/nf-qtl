@@ -104,7 +104,7 @@ process qtl_regression {
 	input:
 		each genome_chunk
 		tuple path(normalized_matrix), path(mask)
-		path plink_files 	// Files are named as plink.<suffix>
+		path plink_files // Files are named as plink.<suffix>
 		each mode
 
 	output:
@@ -113,6 +113,7 @@ process qtl_regression {
 	script:
 	plink_prefix = "${plink_files[0].simpleName}" // Assumes that prefix of all the files is the same and doesn't contain .
 	prefix = "${genome_chunk}.qtl_results.${mode}"
+	additional_covs = params.additional_covs ? "--additional_covariates ${params.additional_covs}" : ""
 	"""
 	python3 $moduleDir/bin/qtl_regression.py \
 		${genome_chunk} \
@@ -123,12 +124,15 @@ process qtl_regression {
 		${params.indivs_order} \
 		${plink_prefix} \
 		${prefix} \
-		--mode ${mode}
+		--mode ${mode} \
+		${additional_covs}
+		
 	"""
 }
 
 process merge_files {
 	publishDir params.outdir
+	conda params.conda
 	scratch true
 
 	input:
@@ -165,6 +169,7 @@ workflow caqtlCalling {
 	// 	keepHeader: true
 	// )
 }
+
 workflow test {
 	genome_chunks = create_genome_chunks() | flatMap(n -> n.split())
 	modes = Channel.of(params.modes.split(','))
@@ -179,6 +184,7 @@ workflow test {
 		| groupTuple()
 		| merge_files
 }
+
 workflow {
 	caqtlCalling()
 }

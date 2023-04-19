@@ -96,11 +96,10 @@ class QTLmapper:
         df_residuals = design.shape[0] - df_model - residualizer.n
         snp_stats, coeffs = self.fit_regression(design, phenotype_residuals,
                                                 df_model, df_residuals)
-        return [
-                   design.shape[0],  # samples tested
-                   n_hom_ref, n_het, n_hom_alt,
-                   *snp_stats  # coeffs, coeffs_se, ss_model, ss_residuals, df_model, df_residals
-               ], coeffs
+        return [design.shape[0],  # samples tested
+                n_hom_ref, n_het, n_hom_alt,
+                *snp_stats  # coeffs, coeffs_se, ss_model, ss_residuals, df_model, df_residals
+                ], coeffs
 
     def process_dhs(self, phenotype_matrix, genotype_matrix, samples_per_snp,
                     dhs_residualizers, snps_data, dhs_data):
@@ -113,13 +112,14 @@ class QTLmapper:
             residualizer = dhs_residualizers[snp_index]
             if residualizer.Q is None:
                 continue
-            if self.mode == 'interaction':
+            if self.mode == 'cell_type':
                 # calculate interaction
                 interaction = snp_genotypes * self.cell_type_data[valid_samples, :]  # [samples x cell_types]
                 snp_genotypes, valid_design_cols_mask = remove_redundant_columns(interaction)
                 valid_design_cols_indices = np.where(valid_design_cols_mask)[0]
             else:
                 valid_design_cols_indices = np.zeros(1, dtype=int)
+
             if snp_genotypes.shape[0] - snp_genotypes.shape[1] - residualizer.n < 1:
                 continue
 
@@ -198,7 +198,7 @@ class QTLPreprocessing:
     allele_frac = 0.05
 
     def __init__(self, dhs_matrix_path, dhs_masterlist_path, samples_order,
-                 plink_prefix, samples_metadata,
+                 plink_prefix, samples_metadata, additional_covariates=None,
                  genomic_region=None, valid_dhs=None, mode='gt_only'):
         self.dhs_matrix = dhs_matrix_path
         self.mode = mode
@@ -210,6 +210,8 @@ class QTLPreprocessing:
         self.dhs_masterlist = dhs_masterlist_path
         self.samples_order = samples_order
         self.valid_dhs = valid_dhs
+        # path to DataFrame with columns ag_id PC1 PC2 ...
+        self.additional_covariates = additional_covariates
 
         if genomic_region:
             self.chrom, self.start, self.end = self.unpack_region(genomic_region)
@@ -218,14 +220,16 @@ class QTLPreprocessing:
 
         self.bim = self.fam = self.bed = self.snps_per_dhs = self.cell_types_list = None
         self.metadata = self.ordered_meta = self.indiv2samples_idx = self.ohe_cell_types = None
-        self.covariates = self.covariates_names = self.valid_samples = self.residualizers = None
+        self.covariates = self.valid_samples = self.residualizers = None
+        self.cell_lines_names = None
 
     def transform(self):
         self.read_dhs_matrix_meta()
         # Change summit to start/end if needed
-        dhs_chunk_index = (self.dhs_masterlist['#chr'] == self.chrom) \
-                & (self.dhs_masterlist['summit'] >= self.start) \
-                & (self.dhs_masterlist['summit'] < self.end)
+        dhs_chunk_index = (self.dhs_masterlist['#chr'] == self.chrom) & \
+                          (self.dhs_masterlist['summit'] >= self.start) & \
+                          (self.dhs_masterlist['summit'] < self.end)
+
         self.filter_dhs_matrix(dhs_chunk_index)
 
         self.load_snp_data()
@@ -237,6 +241,12 @@ class QTLPreprocessing:
 
         self.filter_invalid_test_pairs()
         self.load_covariates()
+        if self.mode != 'gt_only':
+            self.include_cell_type_info()  # [SNPs x samples]
+
+        if self.valid_samples.sum() == 0:
+            raise NoDataLeftError()
+
         return QTLmapper(
             phenotype_matrix=self.dhs_matrix,
             snps_per_dhs=self.snps_per_dhs,
@@ -249,6 +259,22 @@ class QTLPreprocessing:
             mode=self.mode
         )
 
+    def include_cell_type_info(self):
+        ohe_enc = OneHotEncoder(handle_unknown='ignore', sparse_output=False)
+        self.ohe_cell_types = ohe_enc.fit_transform(self.cell_types_list.reshape(-1, 1))
+        # Filter out cell-types with less than 3 distinct genotypes
+        self.valid_samples = self.find_valid_samples_by_cell_type(self.ohe_cell_types.T)  # [SNPs x samples]
+        before_n = (self.bed != -1).sum()
+        self.bed[~self.valid_samples] = -1
+
+        testable_snps = self.find_testable_snps()
+        self.bed = self.bed[testable_snps, :]  # [SNPs x indivs]
+        self.snps_per_dhs = self.snps_per_dhs[:, testable_snps]  # [DHS x SNPs] boolean matrix
+        self.valid_samples = self.valid_samples[testable_snps, :]
+        print(f"SNPxDHS pairs. Before: {before_n}, after: {self.snps_per_dhs.sum()}")
+        self.bim = self.bim.iloc[testable_snps, :].reset_index(drop=True)
+        self.cell_lines_names = ohe_enc.categories_[0]
+
     def extract_variant_dhs_signal(self, variant_id, dhs_chunk_id):
         self.read_dhs_matrix_meta()
         dhs_mask = self.dhs_masterlist['chunk_id'] == dhs_chunk_id
@@ -260,10 +286,10 @@ class QTLPreprocessing:
         self.filter_snp_data(snps_mask)
         self.load_samples_metadata()
         G = self.bed[snps_mask, :]
-        result = {'P': P, 'G': G}
+        res_dict = {'P': P, 'G': G}
         if self.mode != 'gt_only':
-            result['CT'] = self.cell_types_list
-        return pd.DataFrame(result)
+            res_dict['CT'] = self.cell_types_list
+        return pd.DataFrame(res_dict)
 
     def read_dhs_matrix_meta(self):
         # TODO fix for no header case
@@ -352,6 +378,7 @@ class QTLPreprocessing:
         self.dhs_matrix = self.dhs_matrix[~invalid_phens, :]
         self.snps_per_dhs = self.snps_per_dhs[~invalid_phens, :]  # [DHS x SNPs] boolean matrix
         self.dhs_masterlist = self.dhs_masterlist.iloc[~invalid_phens, :].reset_index(drop=True)
+        self.valid_samples = (self.bed != -1)
 
     def find_snps_per_dhs(self):
         phenotype_len = len(self.dhs_masterlist.index)
@@ -412,37 +439,23 @@ class QTLPreprocessing:
         return res * (self.bed != -1).astype(bool)  # [SNP x sample]
 
     def load_covariates(self):
-        covariates = pd.read_table(f'{self.plink_prefix}.eigenvec')
-        assert covariates['IID'].tolist() == self.fam['indiv_id'].tolist()
-        sample_pcs = covariates.loc[self.indiv2samples_idx].iloc[:, 2:].to_numpy()
-        if self.mode != 'gt_only':
-            ohe_enc = OneHotEncoder(handle_unknown='ignore', sparse_output=False)
-            self.ohe_cell_types = ohe_enc.fit_transform(self.cell_types_list.reshape(-1, 1))
-            # Filter out cell-types with less than 3 distinct genotypes
-            self.valid_samples = self.find_valid_samples_by_cell_type(self.ohe_cell_types.T)  # [SNPs x samples]
-            before_n = (self.bed != -1).sum()
-            self.bed[~self.valid_samples] = -1
-
-            testable_snps = self.find_testable_snps()
-            self.bed = self.bed[testable_snps, :]  # [SNPs x indivs]
-            self.snps_per_dhs = self.snps_per_dhs[:, testable_snps]  # [DHS x SNPs] boolean matrix
-            self.valid_samples = self.valid_samples[testable_snps, :]
-            print(f"SNPxDHS pairs. Before: {before_n}, after: {self.snps_per_dhs.sum()}")
-            self.bim = self.bim.iloc[testable_snps, :].reset_index(drop=True)
-            self.covariates = np.concatenate([sample_pcs, self.ohe_cell_types], axis=1)  # [sample x covariate]
-            self.covariates_names = ohe_enc.categories_[0]
+        gt_covariates = pd.read_table(f'{self.plink_prefix}.eigenvec')
+        assert gt_covariates['IID'].tolist() == self.fam['indiv_id'].tolist()
+        sample_pcs = gt_covariates.loc[self.indiv2samples_idx].iloc[:, 2:].to_numpy()
+        if self.additional_covariates is not None:
+            additional_covs = pd.read_table(
+                self.additional_covariates).set_index('ag_id').loc[self.samples_order]
+            self.covariates = np.concatenate(
+                [sample_pcs, additional_covs.to_numpy()], axis=1)  # [sample x covariate]
         else:
-            self.valid_samples = (self.bed != -1)  # [SNPs x samples]
             self.covariates = sample_pcs
-            self.covariates_names = []
-        if self.valid_samples.sum() == 0:
-            raise NoDataLeftError()
+
         self.residualizers = np.array([Residualizer(self.covariates[snp_samples_idx, :])
                                        for snp_samples_idx in self.valid_samples])
 
 
 def main(chunk_id, masterlist_path, non_nan_mask_path, phenotype_matrix_path,
-         samples_order_path, plink_prefix, metadata_path, mode):
+         samples_order_path, plink_prefix, metadata_path, additional_covariates, mode):
     t = time.perf_counter()
     print('Processing started')
     # ---- Read data for specific region only -----
@@ -454,6 +467,7 @@ def main(chunk_id, masterlist_path, non_nan_mask_path, phenotype_matrix_path,
         plink_prefix=plink_prefix,
         samples_metadata=metadata_path,
         valid_dhs=non_nan_mask_path,
+        additional_covariates=additional_covariates,
         mode=mode
     )
     try:
@@ -466,7 +480,7 @@ def main(chunk_id, masterlist_path, non_nan_mask_path, phenotype_matrix_path,
     if qtl_mapper.singular_matrix_count > 0:
         print(f'{qtl_mapper.singular_matrix_count} SNPs excluded! Singular matrix.')
     print(f"Processing finished in {time.perf_counter() - t}s")
-    return res, coefs, processing.covariates_names
+    return res, coefs, processing.cell_lines_names
 
 
 if __name__ == '__main__':
@@ -481,9 +495,12 @@ if __name__ == '__main__':
                         help='Path to file with columns identificators (sample_ids) of phenotype matrix')
     parser.add_argument('plink_prefix', help='Plink prefix to read file with plink_pandas package')
     parser.add_argument('outpath', help='Path to fasta file with SNPs coded as IUPAC symbols')
+    parser.add_argument('--additional_covariates', help='Path to tsv file with additional covariates.'
+                                                        'Should have the following columns: ag_id, PC1, PC2, ...',
+                                                    default=None)
     parser.add_argument('--mode', help='Specify to choose type of caQTL analysis. gt_only, cell_type or interaction',
                         default='gt_only', const='gt_only', nargs='?',
-                        choices=['interaction', 'cell_type', 'gt_only'])
+                        choices=['cell_type', 'gt_only'])
 
     args = parser.parse_args()
 
@@ -496,6 +513,7 @@ if __name__ == '__main__':
         plink_prefix=args.plink_prefix,
         mode=args.mode,
         metadata_path=args.metadata,
+        additional_covariates=args.additional_covariates
     )
     if result is None:
         print(f'No SNPs passing filters found for {args.chunk_id}, exiting')
@@ -507,4 +525,7 @@ if __name__ == '__main__':
 
     regression_result.to_csv(f'{args.outpath}.result.tsv.gz', sep='\t', index=False)
     coefficients.to_csv(f'{args.outpath}.coefs.tsv.gz', sep='\t', index=False)
-    np.savetxt(f'{args.outpath}.cells_order.txt', cell_types, delimiter='\t', fmt="%s")
+    if args.mode == 'gt_only':
+        Path(f'{args.outpath}.cells_order.txt').touch()
+    else:
+        np.savetxt(f'{args.outpath}.cells_order.txt', cell_types, delimiter='\t', fmt="%s")
