@@ -351,7 +351,10 @@ class QTLmapper:
     def process_snp(self, snp_phenotypes, snp_genotypes, residualizer):
         design = residualizer.transform(snp_genotypes.T).T
         phenotype_residuals = residualizer.transform(snp_phenotypes.T).T
-        n_hom_ref, n_het, n_hom_alt = np.unique(snp_genotypes, return_counts=True)[1]
+        if self.mode != 'ct_only':
+            n_hom_ref, n_het, n_hom_alt = np.unique(snp_genotypes, return_counts=True)[1]
+        else:
+            n_hom_ref = n_het = n_hom_alt = np.nan
         df_model = design.shape[1]
         df_residuals = design.shape[0] - df_model - residualizer.n
         snp_stats, coeffs = self.fit_regression(design, phenotype_residuals,
