@@ -9,12 +9,10 @@ from tqdm import tqdm
 from sklearn.preprocessing import OneHotEncoder
 from pathlib import Path
 
-header = [
-    "#chr", "start", "end", "chunk_id", "summit",
-    'variant_id', 'distance_to_summit',
-    'n_samples', 'n_hom_ref', 'n_het', 'n_hom_alt',
-    'ss_model', 'ss_residuals', 'df_model', 'df_residuals'
-]
+
+def remove_redundant_columns(matrix):
+    cols_mask = np.any(matrix != 0, axis=0)
+    return matrix[:, cols_mask], cols_mask
 
 
 class NoDataLeftError(Exception):
@@ -44,153 +42,6 @@ class Residualizer:
         else:
             M0 = M - np.matmul(np.matmul(M0, self.Q), self.Q.T)
         return M0
-
-
-class QTLmapper:
-    def __init__(self, phenotype_matrix, snps_per_dhs,
-                 genotype_matrix, samples_per_snps, residualizers,
-                 snps_data, dhs_data, mode, cell_type_data=None):
-
-        self.phenotype_matrix = phenotype_matrix
-        self.snps_per_phenotype = snps_per_dhs
-        self.genotype_matrix = genotype_matrix
-        self.samples_per_snps = samples_per_snps
-
-        self.residualizers = residualizers
-
-        self.snps_data = snps_data
-        self.dhs_data = dhs_data
-
-        self.mode = mode
-        self.cell_type_data = cell_type_data
-
-        self.singular_matrix_count = 0
-
-    @staticmethod
-    def fit_regression(X, Y, df_model, df_residuals):
-        XtX = np.matmul(np.transpose(X), X)
-        XtY = np.matmul(np.transpose(X), Y)
-        XtXinv = np.linalg.inv(XtX)
-        coeffs = np.matmul(XtXinv, XtY)
-
-        Y_predicted = np.matmul(X, coeffs)
-
-        # sum of squares
-        ss_residuals = np.square(Y - Y_predicted).sum()
-        ss_model = np.square(Y_predicted - Y.mean(0, keepdims=True)).sum()
-
-        # mean sum of squares
-        ms_residuals = ss_residuals / df_residuals
-        if np.any(XtXinv[np.eye(X.shape[1], dtype=bool)][..., None] < 0):
-            raise np.linalg.LinAlgError()
-        # coeffs standard error
-        coeffs_se = np.sqrt(XtXinv[np.eye(X.shape[1], dtype=bool)][..., None] * ms_residuals)
-
-        return [ss_model, ss_residuals, df_model, df_residuals], [coeffs[:, 0], coeffs_se[:, 0]]
-
-    def process_snp(self, snp_phenotypes, snp_genotypes, residualizer):
-        design = residualizer.transform(snp_genotypes.T).T
-        phenotype_residuals = residualizer.transform(snp_phenotypes.T).T
-        n_hom_ref, n_het, n_hom_alt = np.unique(snp_genotypes, return_counts=True)[1]
-        df_model = design.shape[1]
-        df_residuals = design.shape[0] - df_model - residualizer.n
-        snp_stats, coeffs = self.fit_regression(design, phenotype_residuals,
-                                                df_model, df_residuals)
-        return [design.shape[0],  # samples tested
-                n_hom_ref, n_het, n_hom_alt,
-                *snp_stats  # coeffs, coeffs_se, ss_model, ss_residuals, df_model, df_residals
-                ], coeffs
-
-    def process_dhs(self, phenotype_matrix, genotype_matrix, samples_per_snp,
-                    dhs_residualizers, snps_data, dhs_data):
-        res = []
-        coeffs_res = []
-        dhs_data_as_list = dhs_data.to_list()
-        for snp_index, genotypes in enumerate(genotype_matrix):
-            valid_samples = samples_per_snp[snp_index]
-            snp_genotypes = genotypes[valid_samples][:, None]  # [samples x 1]
-            residualizer = dhs_residualizers[snp_index]
-            if residualizer.Q is None:
-                continue
-            if self.mode == 'cell_type':
-                # calculate interaction
-                interaction = snp_genotypes * self.cell_type_data[valid_samples, :]  # [samples x cell_types]
-                snp_genotypes, valid_design_cols_mask = remove_redundant_columns(interaction)
-                valid_design_cols_indices = np.where(valid_design_cols_mask)[0]
-            else:
-                valid_design_cols_indices = np.zeros(1, dtype=int)
-
-            if snp_genotypes.shape[0] - snp_genotypes.shape[1] - residualizer.n < 1:
-                continue
-
-            snp_phenotypes = phenotype_matrix[valid_samples][:, None]  # [samples x 1]
-            try:
-                snp_stats, coeffs = self.process_snp(snp_phenotypes=snp_phenotypes,
-                                                     snp_genotypes=snp_genotypes,
-                                                     residualizer=residualizer)
-            except np.linalg.LinAlgError:
-                self.singular_matrix_count += 1
-                continue
-
-            snp_id, snp_pos = snps_data.iloc[snp_index][['variant_id', 'pos']]
-            to_add = np.repeat(np.array([snp_id, dhs_data['chunk_id']])[None, ...],
-                               valid_design_cols_indices.shape[0], axis=0)
-
-            stack = np.stack([valid_design_cols_indices, *coeffs]).T
-
-            coeffs_res.append(np.concatenate([to_add, stack], axis=1))
-
-            res.append([
-                *dhs_data_as_list,
-                snp_id,
-                snp_pos - dhs_data['summit'],  # dist to "TSS"
-                *snp_stats
-            ])
-        return res, coeffs_res
-
-    @staticmethod
-    def post_processing(df):
-        # Do in vectorized manner
-        df['minor_allele_count'] = df[['n_hom_ref', 'n_hom_alt']].min(axis=1) * 2 + df['n_het']
-        df['f_stat'] = ((df['ss_model'] / df['df_model']) / (df['ss_residuals'] / df['df_residuals'])).astype(float)
-        df['log10_f_pval'] = -st.f.logsf(
-            df['f_stat'].to_numpy(),
-            dfd=df['df_residuals'].to_numpy(),
-            dfn=df['df_model'].to_numpy()) / np.log(10)
-        return df
-
-    def map_qtl(self):
-        # optionally do in parallel
-        stats_res = []
-        coefs_res = []
-        for dhs_idx, snps_indices in enumerate(tqdm(self.snps_per_phenotype)):
-            # sub-setting matrices
-            phenotype = np.squeeze(self.phenotype_matrix[dhs_idx, :])
-            genotypes = self.genotype_matrix[snps_indices, :]
-            samples_per_snp = self.samples_per_snps[snps_indices, :]
-            dhs_residualizers = self.residualizers[snps_indices]
-            current_dhs_data = self.dhs_data.iloc[dhs_idx]
-            current_snps_data = self.snps_data.iloc[snps_indices]
-
-            stats, coefs = self.process_dhs(phenotype_matrix=phenotype,
-                                            genotype_matrix=genotypes,
-                                            samples_per_snp=samples_per_snp,
-                                            dhs_residualizers=dhs_residualizers,
-                                            snps_data=current_snps_data,
-                                            dhs_data=current_dhs_data,
-                                            )
-            stats_res.extend(stats)
-            coefs_res.extend(coefs)
-
-        stats_res = pd.DataFrame(stats_res, columns=header)
-        coefs_res = pd.DataFrame(np.concatenate(coefs_res),
-                                 columns=['variant_id', 'chunk_id', 'design_var_index', 'coeff', 'coeff_se'])
-        return self.post_processing(stats_res), coefs_res
-
-
-def remove_redundant_columns(matrix):
-    cols_mask = np.any(matrix != 0, axis=0)
-    return matrix[:, cols_mask], cols_mask
 
 
 class QTLPreprocessing:
@@ -453,6 +304,153 @@ class QTLPreprocessing:
 
         self.residualizers = np.array([Residualizer(self.covariates[snp_samples_idx, :])
                                        for snp_samples_idx in self.valid_samples])
+
+
+class QTLmapper:
+    def __init__(self, phenotype_matrix, snps_per_dhs,
+                 genotype_matrix, samples_per_snps, residualizers,
+                 snps_data, dhs_data, mode, cell_type_data=None):
+
+        self.phenotype_matrix = phenotype_matrix
+        self.snps_per_phenotype = snps_per_dhs
+        self.genotype_matrix = genotype_matrix
+        self.samples_per_snps = samples_per_snps
+
+        self.residualizers = residualizers
+
+        self.snps_data = snps_data
+        self.dhs_data = dhs_data
+
+        self.mode = mode
+        self.cell_type_data = cell_type_data
+
+        self.singular_matrix_count = 0
+
+    @staticmethod
+    def fit_regression(X, Y, df_model, df_residuals):
+        XtX = np.matmul(np.transpose(X), X)
+        XtY = np.matmul(np.transpose(X), Y)
+        XtXinv = np.linalg.inv(XtX)
+        coeffs = np.matmul(XtXinv, XtY)
+
+        Y_predicted = np.matmul(X, coeffs)
+
+        # sum of squares
+        ss_residuals = np.square(Y - Y_predicted).sum()
+        ss_model = np.square(Y_predicted - Y.mean(0, keepdims=True)).sum()
+
+        # mean sum of squares
+        ms_residuals = ss_residuals / df_residuals
+        if np.any(XtXinv[np.eye(X.shape[1], dtype=bool)][..., None] < 0):
+            raise np.linalg.LinAlgError()
+        # coeffs standard error
+        coeffs_se = np.sqrt(XtXinv[np.eye(X.shape[1], dtype=bool)][..., None] * ms_residuals)
+
+        return [ss_model, ss_residuals, df_model, df_residuals], [coeffs[:, 0], coeffs_se[:, 0]]
+
+    def process_snp(self, snp_phenotypes, snp_genotypes, residualizer):
+        design = residualizer.transform(snp_genotypes.T).T
+        phenotype_residuals = residualizer.transform(snp_phenotypes.T).T
+        n_hom_ref, n_het, n_hom_alt = np.unique(snp_genotypes, return_counts=True)[1]
+        df_model = design.shape[1]
+        df_residuals = design.shape[0] - df_model - residualizer.n
+        snp_stats, coeffs = self.fit_regression(design, phenotype_residuals,
+                                                df_model, df_residuals)
+        return [design.shape[0],  # samples tested
+                n_hom_ref, n_het, n_hom_alt,
+                *snp_stats  # coeffs, coeffs_se, ss_model, ss_residuals, df_model, df_residals
+                ], coeffs
+
+    def process_dhs(self, phenotype_matrix, genotype_matrix, samples_per_snp,
+                    dhs_residualizers, snps_data, dhs_data):
+        res = []
+        coeffs_res = []
+        dhs_data_as_list = dhs_data.to_list()
+        for snp_index, genotypes in enumerate(genotype_matrix):
+            valid_samples = samples_per_snp[snp_index]
+            snp_genotypes = genotypes[valid_samples][:, None]  # [samples x 1]
+            residualizer = dhs_residualizers[snp_index]
+            if residualizer.Q is None:
+                continue
+            if self.mode == 'cell_type':
+                # calculate interaction
+                interaction = snp_genotypes * self.cell_type_data[valid_samples, :]  # [samples x cell_types]
+                snp_genotypes, valid_design_cols_mask = remove_redundant_columns(interaction)
+                valid_design_cols_indices = np.where(valid_design_cols_mask)[0]
+            else:
+                valid_design_cols_indices = np.zeros(1, dtype=int)
+
+            if snp_genotypes.shape[0] - snp_genotypes.shape[1] - residualizer.n < 1:
+                continue
+
+            snp_phenotypes = phenotype_matrix[valid_samples][:, None]  # [samples x 1]
+            try:
+                snp_stats, coeffs = self.process_snp(snp_phenotypes=snp_phenotypes,
+                                                     snp_genotypes=snp_genotypes,
+                                                     residualizer=residualizer)
+            except np.linalg.LinAlgError:
+                self.singular_matrix_count += 1
+                continue
+
+            snp_id, snp_pos = snps_data.iloc[snp_index][['variant_id', 'pos']]
+            to_add = np.repeat(np.array([snp_id, dhs_data['chunk_id']])[None, ...],
+                               valid_design_cols_indices.shape[0], axis=0)
+
+            stack = np.stack([valid_design_cols_indices, *coeffs]).T
+
+            coeffs_res.append(np.concatenate([to_add, stack], axis=1))
+
+            res.append([
+                *dhs_data_as_list,
+                snp_id,
+                snp_pos - dhs_data['summit'],  # dist to "TSS"
+                *snp_stats
+            ])
+        return res, coeffs_res
+
+    @staticmethod
+    def post_processing(df):
+        # Do in vectorized manner
+        df['minor_allele_count'] = df[['n_hom_ref', 'n_hom_alt']].min(axis=1) * 2 + df['n_het']
+        df['f_stat'] = ((df['ss_model'] / df['df_model']) / (df['ss_residuals'] / df['df_residuals'])).astype(float)
+        df['log10_f_pval'] = -st.f.logsf(
+            df['f_stat'].to_numpy(),
+            dfd=df['df_residuals'].to_numpy(),
+            dfn=df['df_model'].to_numpy()) / np.log(10)
+        return df
+
+    def map_qtl(self):
+        # optionally do in parallel
+        stats_res = []
+        coefs_res = []
+        for dhs_idx, snps_indices in enumerate(tqdm(self.snps_per_phenotype)):
+            # sub-setting matrices
+            phenotype = np.squeeze(self.phenotype_matrix[dhs_idx, :])
+            genotypes = self.genotype_matrix[snps_indices, :]
+            samples_per_snp = self.samples_per_snps[snps_indices, :]
+            dhs_residualizers = self.residualizers[snps_indices]
+            current_dhs_data = self.dhs_data.iloc[dhs_idx]
+            current_snps_data = self.snps_data.iloc[snps_indices]
+
+            stats, coefs = self.process_dhs(phenotype_matrix=phenotype,
+                                            genotype_matrix=genotypes,
+                                            samples_per_snp=samples_per_snp,
+                                            dhs_residualizers=dhs_residualizers,
+                                            snps_data=current_snps_data,
+                                            dhs_data=current_dhs_data,
+                                            )
+            stats_res.extend(stats)
+            coefs_res.extend(coefs)
+
+        stats_res = pd.DataFrame(stats_res, columns=[
+            "#chr", "start", "end", "chunk_id", "summit",
+            'variant_id', 'distance_to_summit',
+            'n_samples', 'n_hom_ref', 'n_het', 'n_hom_alt',
+            'ss_model', 'ss_residuals', 'df_model', 'df_residuals'
+        ])
+        coefs_res = pd.DataFrame(np.concatenate(coefs_res),
+                                 columns=['variant_id', 'chunk_id', 'design_var_index', 'coeff', 'coeff_se'])
+        return self.post_processing(stats_res), coefs_res
 
 
 def main(chunk_id, masterlist_path, non_nan_mask_path, phenotype_matrix_path,
