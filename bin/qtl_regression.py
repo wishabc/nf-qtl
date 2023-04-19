@@ -261,6 +261,8 @@ class QTLPreprocessing:
         )
 
     def include_cell_type_info(self):
+        # cell_types enumerated by sample_index
+        self.cell_types_list = self.metadata['CT'].to_numpy()
         ohe_enc = OneHotEncoder(handle_unknown='ignore', sparse_output=False)
         self.ohe_cell_types = ohe_enc.fit_transform(self.cell_types_list.reshape(-1, 1))
         # Filter out cell-types with less than 3 distinct genotypes
@@ -370,8 +372,6 @@ class QTLPreprocessing:
 
         self.indiv2samples_idx = self.metadata['index'].to_numpy()
         self.bed = self.bed[:, self.indiv2samples_idx]
-        # cell_types enumerated by sample_index
-        self.cell_types_list = self.metadata['CT'].to_numpy()
 
     def filter_invalid_test_pairs(self):
         # returns [DHS x SNPs] boolean matrix, [DHS] boolean vector
