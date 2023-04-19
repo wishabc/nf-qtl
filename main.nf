@@ -108,7 +108,7 @@ process qtl_regression {
 		each mode
 
 	output:
-		tuple val(mode), path("${prefix}.result.tsv.gz"), path("${prefix}.coefs.tsv.gz"), path("${prefix}.cells_order.txt")
+		tuple val(mode), path("${prefix}.result.tsv.gz"), path("${prefix}.coefs.tsv.gz")
 
 	script:
 	plink_prefix = "${plink_files[0].simpleName}" // Assumes that prefix of all the files is the same and doesn't contain .
@@ -136,7 +136,7 @@ process merge_files {
 	scratch true
 
 	input:
-		tuple val(mode), path(results), path(coeffs), path(cells_order)
+		tuple val(mode), path(results), path(coeffs)
 	
 	output:
 		path "${out_prefix}*"
@@ -146,15 +146,13 @@ process merge_files {
 	"""
 	echo "${results}" | tr " " "\n" > results.filelist.txt
 	echo "${coeffs}" | tr " " "\n" > coeffs.filelist.txt
-	echo "${cells_order}" | tr " " "\n" > cells_order.filelist.txt
 	python3 $moduleDir/bin/normalize_counts.py \
 		results.filelist.txt \
 		coeffs.filelist.txt \
-		cells_order.filelist.txt \
 		${out_prefix}
 
-	sort-bed ${out_prefix}.results.bed | bgzip -c > ${out_prefix}.results.bed.gz
-	sort-bed ${out_prefix}.coeffs.bed | bgzip -c > ${out_prefix}.coeffs.bed.gz
+	bgzip ${out_prefix}.results.bed > ${out_prefix}.results.bed.gz
+	bgzip ${out_prefix}.coeffs.bed > ${out_prefix}.coeffs.bed.gz
 	"""
 }
 
