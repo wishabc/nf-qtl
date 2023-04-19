@@ -240,9 +240,10 @@ class QTLPreprocessing:
         self.load_samples_metadata()
 
         self.filter_invalid_test_pairs()
-        self.load_covariates()
         if self.mode != 'gt_only':
             self.include_cell_type_info()  # [SNPs x samples]
+        
+        self.load_covariates()
 
         if self.valid_samples.sum() == 0:
             raise NoDataLeftError()
@@ -447,8 +448,6 @@ class QTLPreprocessing:
                 self.additional_covariates).set_index('ag_id').loc[self.samples_order]
             self.covariates = np.concatenate(
                 [sample_pcs, additional_covs.to_numpy()], axis=1)  # [sample x covariate]
-            print(additional_covs.to_numpy().shape)
-            print(sample_pcs.shape, self.covariates.shape)
         else:
             self.covariates = sample_pcs
 
