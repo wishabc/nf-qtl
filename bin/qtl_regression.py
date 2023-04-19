@@ -372,11 +372,14 @@ class QTLmapper:
             residualizer = dhs_residualizers[snp_index]
             if residualizer.Q is None:
                 continue
-            if self.mode == 'interaction':
+            if self.mode in ('interaction', 'ct_only'):
                 # calculate interaction
-                interaction = snp_genotypes * self.cell_type_data[valid_samples, :]  # [samples x cell_types]
-                snp_genotypes, valid_design_cols_mask = remove_redundant_columns(interaction)
+                cell_types, valid_design_cols_mask = remove_redundant_columns(self.cell_type_data[valid_samples, :])
                 valid_design_cols_indices = np.where(valid_design_cols_mask)[0]
+                if self.mode == 'interaction':
+                    snp_genotypes = snp_genotypes * cell_types  # [samples x cell_types]
+                else:
+                    snp_genotypes = cell_types
             else:
                 valid_design_cols_indices = np.zeros(1, dtype=int)
 
@@ -420,7 +423,6 @@ class QTLmapper:
         return df
 
     def map_qtl(self):
-        # optionally do in parallel
         stats_res = []
         coefs_res = []
         for dhs_idx, snps_indices in enumerate(tqdm(self.snps_per_phenotype)):
@@ -499,7 +501,7 @@ if __name__ == '__main__':
                                                     default=None)
     parser.add_argument('--mode', help='Specify to choose type of caQTL analysis. gt_only, cell_type or interaction',
                         default='gt_only', const='gt_only', nargs='?',
-                        choices=['cell_type', 'interaction', 'gt_only'])
+                        choices=['cell_type', 'interaction', 'ct_only', 'gt_only'])
 
     args = parser.parse_args()
 
