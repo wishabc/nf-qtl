@@ -296,10 +296,11 @@ class Residualizer:
     def __init__(self, C):
         # center and orthogonalize
         self.n = np.linalg.matrix_rank(C)
+        cond_num = np.linalg.cond(C)
         self.dof = C.shape[0] - self.n
         # debug
         self.C = C
-        if self.dof == 0:
+        if self.dof == 0 or cond_num > 1000:
             self.Q = None
         else:
             M, _ = remove_redundant_columns(C)  # to make qr more stable
@@ -337,6 +338,7 @@ class QTLmapper:
         self.ct_names = ct_names
 
         self.singular_matrix_count = 0
+        self.poorly_conditioned = 0
 
     @staticmethod
     def fit_regression(X, Y, df_model, df_residuals):
@@ -386,6 +388,7 @@ class QTLmapper:
             snp_genotypes = genotypes[valid_samples][:, None]  # [samples x 1]
             residualizer = dhs_residualizers[snp_index]
             if residualizer.Q is None:
+                self.poorly_conditioned += 1
                 continue
             if self.mode in ('interaction', 'ct_only'):
                 # calculate interaction
@@ -499,6 +502,8 @@ def main(chunk_id, masterlist_path, non_nan_mask_path, phenotype_matrix_path,
     res, coefs = qtl_mapper.map_qtl()
     if qtl_mapper.singular_matrix_count > 0:
         print(f'{qtl_mapper.singular_matrix_count} SNPs excluded! Singular matrix.')
+    if qtl_mapper.poorly_conditioned > 0:
+        print(f'{qtl_mapper.poorly_conditioned} SNPs excluded! Poorly conditioned residuals.')
     print(f"Processing finished in {time.perf_counter() - t}s")
     return res, coefs
 
