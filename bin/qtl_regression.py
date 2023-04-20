@@ -175,6 +175,7 @@ class QTLPreprocessing:
         self.bed_dask = 2 - self.bed_dask
         self.bed_dask[np.isnan(self.bed_dask)] = -1
         self.bed_dask = self.bed_dask.astype(np.int8, copy=False)
+        self.fam.rename(columns={'iid': 'indiv_id'}, inplace=True)
 
     def load_snp_matrix(self, snps_index):
         self.bim = self.bim.loc[snps_index].reset_index(drop=True)
@@ -186,7 +187,6 @@ class QTLPreprocessing:
             lambda row: f"{row['chrom']}_{row['pos']}_{row['snp']}_{row['a1']}_{row['a0']}",
             axis=1
         )
-        self.fam.rename(columns={'iid': 'indiv_id'}, inplace=True)
 
     def load_samples_metadata(self, samples_metadata):
         metadata = pd.read_table(samples_metadata)
