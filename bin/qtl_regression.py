@@ -300,7 +300,7 @@ class Residualizer:
         self.dof = C.shape[0] - self.n
         # debug
         self.C = C
-        if self.dof == 0 or cond_num > 10000:
+        if self.dof == 0 or cond_num > 50000:
             self.Q = None
         else:
             M, _ = remove_redundant_columns(C)  # to make qr more stable
