@@ -461,6 +461,8 @@ class QTLmapper:
                                             )
             stats_res.extend(stats)
             coefs_res.extend(coefs)
+        if len(stats_res) == 0:
+            raise NoDataLeftError()
 
         stats_res = pd.DataFrame(stats_res, columns=[
             "#chr", "start", "end", "chunk_id", "summit",
@@ -495,11 +497,11 @@ def main(chunk_id, masterlist_path, non_nan_mask_path, phenotype_matrix_path,
     )
     try:
         qtl_mapper = processing.transform(genomic_region=chunk_id)
+        res, coefs = qtl_mapper.map_qtl()
     except NoDataLeftError:
         return None
     print(f"Preprocessing finished in {time.perf_counter() - t}s")
     # ------------ Run regressions -----------
-    res, coefs = qtl_mapper.map_qtl()
     if qtl_mapper.singular_matrix_count > 0:
         print(f'{qtl_mapper.singular_matrix_count} SNPs excluded! Singular matrix.')
     if qtl_mapper.poorly_conditioned > 0:
