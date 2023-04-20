@@ -279,7 +279,8 @@ class QTLPreprocessing:
         if self.additional_covariates is not None:
             additional_covs = pd.read_table(
                 self.additional_covariates).set_index('ag_id').loc[self.samples_order]
-            self.covariates = additional_covs.to_numpy() #np.concatenate(
+            self.covariates = additional_covs.to_numpy()
+            # self.covariates = np.concatenate(
                 #[sample_pcs, additional_covs.to_numpy()], axis=1)  # [sample x covariate]
         else:
             self.covariates = sample_pcs
@@ -299,7 +300,7 @@ class Residualizer:
         self.dof = C.shape[0] - self.n
         # debug
         self.C = C
-        if self.dof == 0 or np.linalg.cond(C) > 1000:
+        if self.dof == 0 or np.linalg.cond(C) > 100:
             self.Q = None
         else:
             M, _ = remove_redundant_columns(C)  # to make qr more stable
