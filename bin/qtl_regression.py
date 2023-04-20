@@ -16,7 +16,7 @@ class QTLPreprocessing:
 
     def __init__(self, dhs_matrix_path, dhs_masterlist_path, samples_order,
                  plink_prefix, samples_metadata, additional_covariates=None,
-                 valid_dhs=None, mode='gt_only'):
+                 valid_dhs=None, mode='gt_only', cond_num_tr=100):
         self.dhs_matrix = dhs_matrix_path
         self.mode = mode
         self.min_samples_per_genotype = 3
@@ -25,6 +25,7 @@ class QTLPreprocessing:
         self.plink_prefix = plink_prefix
         self.samples_metadata = samples_metadata
         self.samples_order = samples_order
+        self.cond_num_tr = cond_num_tr
         self.valid_dhs = valid_dhs
         # path to DataFrame with columns ag_id PC1 PC2 ...
         self.additional_covariates = additional_covariates
@@ -63,6 +64,7 @@ class QTLPreprocessing:
             dhs_data=self.dhs_masterlist[["#chr", "start", "end", "chunk_id", "summit"]],
             ct_data=self.ohe_cell_types,
             ct_names=self.ct_names,
+            cond_num_tr=self.cond_num_tr,
             mode=self.mode
         )
 
@@ -285,7 +287,7 @@ class QTLPreprocessing:
         else:
             self.covariates = sample_pcs
 
-        self.residualizers = np.array([Residualizer(self.covariates[snp_samples_idx, :])
+        self.residualizers = np.array([Residualizer(self.covariates[snp_samples_idx, :], self.cond_num_tr)
                                        for snp_samples_idx in self.valid_samples])
 
 
@@ -294,13 +296,13 @@ class NoDataLeftError(Exception):
 
 
 class Residualizer:
-    def __init__(self, C):
+    def __init__(self, C, cond_num=100):
         # center and orthogonalize
         self.n = np.linalg.matrix_rank(C)
         self.dof = C.shape[0] - self.n
         # debug
         self.C = C
-        if self.dof == 0 or np.linalg.cond(C) > 100:
+        if self.dof == 0 or np.linalg.cond(C) > cond_num:
             self.Q = None
         else:
             M, _ = remove_redundant_columns(C)  # to make qr more stable
@@ -321,7 +323,8 @@ class Residualizer:
 class QTLmapper:
     def __init__(self, phenotype_matrix, snps_per_dhs,
                  genotype_matrix, samples_per_snps, residualizers,
-                 snps_data, dhs_data, mode, ct_data=None, ct_names=None):
+                 snps_data, dhs_data, mode,
+                 cond_num_tr=100, ct_data=None, ct_names=None):
 
         self.phenotype_matrix = phenotype_matrix
         self.snps_per_phenotype = snps_per_dhs
@@ -336,6 +339,8 @@ class QTLmapper:
         self.mode = mode
         self.ct_data = ct_data
         self.ct_names = ct_names
+
+        self.cond_num_tr = cond_num_tr
 
         self.singular_matrix_count = 0
         self.poorly_conditioned = 0
@@ -371,6 +376,9 @@ class QTLmapper:
             n_hom_ref = n_het = n_hom_alt = np.nan
         df_model = design.shape[1]
         df_residuals = design.shape[0] - df_model - residualizer.n
+        if np.linalg.cond(design) >= self.cond_num_tr:
+            self.poorly_conditioned += 1
+            raise np.linalg.LinAlgError()
         snp_stats, coeffs = self.fit_regression(design, phenotype_residuals,
                                                 df_model, df_residuals)
         return [design.shape[0],  # samples tested
@@ -493,14 +501,15 @@ def main(chunk_id, masterlist_path, non_nan_mask_path, phenotype_matrix_path,
         samples_metadata=metadata_path,
         valid_dhs=non_nan_mask_path,
         additional_covariates=additional_covariates,
+        cond_num_tr=100,
         mode=mode
     )
     try:
         qtl_mapper = processing.transform(genomic_region=chunk_id)
+        print(f"Preprocessing finished in {time.perf_counter() - t}s")
         res, coefs = qtl_mapper.map_qtl()
     except NoDataLeftError:
         return None
-    print(f"Preprocessing finished in {time.perf_counter() - t}s")
     # ------------ Run regressions -----------
     if qtl_mapper.singular_matrix_count > 0:
         print(f'{qtl_mapper.singular_matrix_count} SNPs excluded! Singular matrix.')
