@@ -296,11 +296,10 @@ class Residualizer:
     def __init__(self, C):
         # center and orthogonalize
         self.n = np.linalg.matrix_rank(C)
-        cond_num = np.linalg.cond(C)
         self.dof = C.shape[0] - self.n
         # debug
         self.C = C
-        if self.dof == 0 or cond_num > 50000:
+        if self.dof == 0 or np.linalg.cond(C) > 50000:
             self.Q = None
         else:
             M, _ = remove_redundant_columns(C)  # to make qr more stable
