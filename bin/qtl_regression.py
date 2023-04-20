@@ -9,6 +9,24 @@ from tqdm import tqdm
 from sklearn.preprocessing import OneHotEncoder
 from pathlib import Path
 
+# Temporary hotfix
+bad_cell_types = [
+    'K562', 'Lung cancer cell lines', 'Breast cancer cell lines',
+    'Hematopoietic cancer cell lines', 'Colon cancer cell lines',
+    'Lung cancer cell lines (NCI-H524)', 'Soft tissue cancer cell lines',
+    'Caco-2', 'HepG2', 'MG-63', 'SJSA1', 'SK-N-DZ', 'BE2C',
+    'G-401',
+    'Daoy',
+    'Calu3', 'PC-9', 'RPMI-7951',
+    'RWPE2', 'SJCRH30',
+    'RKO', 'A172', 'ELR', 'LNCaP clone FGC', 'Jurkat, Clone E6-1',
+    'HAP-1', 'HT1080',
+    'M059J', 'SIG-M5',
+    'HL-60', 'SK-N-SH',
+    'HS-5', 'TF-1.CN5a.1', 'HT-29', 'L1-S8', 'MCF-7',
+    'NCI-H226', 'PC-3', 'HS-27A', 'WERI-Rb-1'
+]
+
 
 class QTLPreprocessing:
     window = 500_000
@@ -20,35 +38,34 @@ class QTLPreprocessing:
         self.dhs_matrix = dhs_matrix_path
         self.mode = mode
         self.min_samples_per_genotype = 3
-        self.min_unique_genotypes = 3
+        self.min_unique_genotypes = 2
         self.n_cell_types = 2
         self.plink_prefix = plink_prefix
-        self.samples_metadata = samples_metadata
-        self.samples_order = samples_order
         self.cond_num_tr = cond_num_tr
         self.valid_dhs = valid_dhs
         # path to DataFrame with columns ag_id PC1 PC2 ...
         self.additional_covariates = additional_covariates
 
-        self.dhs_masterlist = None
+        self.dhs_masterlist = self.indiv_names = self.samples_order = None
         self.bim = self.fam = self.bed = self.bed_dask = self.snps_per_dhs = None
-        
-        self.cell_types_list = self.ct_names = None
+
+        self.cell_types_list = self.ct_names = self.good_indivs_mask = None
         self.metadata = self.ordered_meta = self.indiv2samples_idx = self.ohe_cell_types = None
         self.covariates = self.valid_samples = self.residualizers = None
 
-        self.read_dhs_matrix_meta(dhs_masterlist_path)
+        self.read_dhs_matrix_meta(dhs_masterlist_path, samples_order)
         self.load_snp_data()
-    
+        self.load_samples_metadata(samples_metadata)
+
     def transform(self, genomic_region):
         chrom, start, end = self.unpack_region(genomic_region)
 
         # Change summit to start/end if needed
         dhs_chunk_mask = (self.dhs_masterlist['#chr'] == chrom) & \
-                          (self.dhs_masterlist['summit'] >= start) & \
-                          (self.dhs_masterlist['summit'] < end)
+                         (self.dhs_masterlist['summit'] >= start) & \
+                         (self.dhs_masterlist['summit'] < end)
         snps_mask = self.bim.eval(f'chrom == "{chrom}" & pos >= {start - self.window + 1}'
-                            f' & pos < {end + self.window}').to_numpy().astype(bool)
+                                  f' & pos < {end + self.window}').to_numpy().astype(bool)
 
         self.preprocess(dhs_chunk_mask, snps_mask)
         if self.valid_samples.sum() == 0:
@@ -69,12 +86,8 @@ class QTLPreprocessing:
         )
 
     def preprocess(self, dhs_chunk_mask, snps_mask):
-        self.filter_dhs_matrix(dhs_chunk_mask)
-
-        self.filter_snp_data(snps_mask)
-
-        self.load_samples_metadata()
-        
+        self.load_dhs_matrix(dhs_chunk_mask)
+        self.load_snp_matrix(snps_mask)
         if self.mode != 'gt_only':
             self.include_cell_type_info()  # [SNPs x samples]
 
@@ -83,7 +96,7 @@ class QTLPreprocessing:
 
     def extract_variant_dhs_signal(self, variant_id, dhs_chunk_id):
         dhs_mask = self.dhs_masterlist['chunk_id'] == dhs_chunk_id
-        
+
         chrom, pos, _, _, a0 = variant_id.split('_')
         snps_mask = self.bim.eval(
             f'chrom == "{chrom}" & pos == {pos} & a0 == "{a0}"'
@@ -104,11 +117,12 @@ class QTLPreprocessing:
             'G': g[0],
             'S': self.valid_samples[0],
             'P_res': p_res,
-            'g_res': g_res
+            'g_res': g_res,
+            'indiv_index': self.indiv_names
         }
         if self.mode != 'gt_only':
             res_dict['CT'] = self.cell_types_list
-        
+
         return pd.DataFrame(res_dict)
 
     def include_cell_type_info(self):
@@ -118,7 +132,7 @@ class QTLPreprocessing:
         self.ohe_cell_types = ohe_enc.fit_transform(self.cell_types_list.reshape(-1, 1))
         self.ct_names = ohe_enc.categories_[0]
 
-    def read_dhs_matrix_meta(self, dhs_masterlist_path):
+    def read_dhs_matrix_meta(self, dhs_masterlist_path, samples_order):
         # TODO fix for no header case
         self.dhs_masterlist = pd.read_table(
             dhs_masterlist_path,
@@ -131,7 +145,7 @@ class QTLPreprocessing:
             self.dhs_masterlist = self.dhs_masterlist[self.valid_dhs]
         else:
             self.valid_dhs = np.ones(len(self.dhs_masterlist.index), dtype=bool)
-        self.samples_order = np.loadtxt(self.samples_order, delimiter='\t', dtype=str)
+        self.samples_order = np.loadtxt(samples_order, delimiter='\t', dtype=str)
 
     @staticmethod
     def unpack_region(s):
@@ -139,8 +153,10 @@ class QTLPreprocessing:
         start, end = coords.split("-")
         return chrom, int(start), int(end)
 
-    def filter_dhs_matrix(self, dhs_filter):
+    def load_dhs_matrix(self, dhs_filter):
         self.dhs_masterlist = self.dhs_masterlist[dhs_filter].reset_index(drop=True)
+        if self.dhs_masterlist.empty:
+            raise NoDataLeftError()
         with h5py.File(self.dhs_matrix, 'r') as f:
             self.dhs_matrix = f['normalized_counts'][dhs_filter, :]  # [DHS x samples]
         assert (~np.isfinite(self.dhs_matrix)).sum() == 0
@@ -160,16 +176,11 @@ class QTLPreprocessing:
         self.bed_dask[np.isnan(self.bed_dask)] = -1
         self.bed_dask = self.bed_dask.astype(np.int8, copy=False)
 
-    def filter_snp_data(self, snps_index):
-        # pos is 1-based, start is 0-based
-        self.bed = self.bed_dask[snps_index, :].compute()
-        # filter SNPs with homref, homalt and hets present
-        testable_snps = self.find_testable_snps()
-        self.bed = self.bed[testable_snps, :]  # [SNPs x indivs]
-        self.bim = self.bim.loc[snps_index].iloc[testable_snps].reset_index(drop=True)
-
+    def load_snp_matrix(self, snps_index):
+        self.bim = self.bim.loc[snps_index].reset_index(drop=True)
         if self.bim.empty:
             raise NoDataLeftError()
+        self.bed = self.bed_dask[snps_index, :].compute()  # [SNPs x indivs]
         # use eval instead?
         self.bim['variant_id'] = self.bim.apply(
             lambda row: f"{row['chrom']}_{row['pos']}_{row['snp']}_{row['a1']}_{row['a0']}",
@@ -177,8 +188,8 @@ class QTLPreprocessing:
         )
         self.fam.rename(columns={'iid': 'indiv_id'}, inplace=True)
 
-    def load_samples_metadata(self):
-        metadata = pd.read_table(self.samples_metadata)
+    def load_samples_metadata(self, samples_metadata):
+        metadata = pd.read_table(samples_metadata)
         req_cols = ['ag_id', 'indiv_id']
         if self.mode != 'gt_only':
             req_cols.append('CT')
@@ -190,12 +201,27 @@ class QTLPreprocessing:
         self.metadata = metadata[req_cols].merge(
             self.fam['indiv_id'].reset_index()
         ).set_index('ag_id').loc[self.samples_order, :]
+        # --------- Temporary fix --------
+        bad_samples_mask = self.metadata['CT'].isin(bad_cell_types).to_numpy()
+        bad_indivs = self.metadata[bad_samples_mask]['index'].unique()
+        self.metadata = self.metadata[~bad_samples_mask]
+        if self.metadata['index'].isin(bad_indivs):
+            self.metadata[self.metadata['index'].isin(bad_indivs)].reset_index().to_csv(
+                'bad_samples.tsv', sep='\t', index=False
+            )
+            fm = self.metadata['index'].isin(bad_indivs)
+            self.metadata = self.metadata[~fm]
+            self.samples_order = self.samples_order[~bad_samples_mask][~fm]
+        self.good_indivs_mask = np.ones(self.bed_dask.shape[1], dtype=bool)
+        self.good_indivs_mask[bad_indivs] = 0
+        self.bed_dask = self.bed_dask[:, self.good_indivs_mask]
+        # --------------------------------
         difference = len(metadata.index) - len(self.metadata.index)
         if difference != 0:
             print(f'{difference} samples has been filtered out!')
 
         self.indiv2samples_idx = self.metadata['index'].to_numpy()
-        self.bed = self.bed[:, self.indiv2samples_idx]
+        self.indiv_names = self.metadata['indiv_id'].to_numpy()
 
     def filter_invalid_test_pairs(self):
         invalid_phens = self.find_snps_per_dhs()
@@ -215,6 +241,9 @@ class QTLPreprocessing:
         self.valid_samples = self.valid_samples[testable_snps, :]
         print(f"SNPxDHS pairs. Before: {before_n}, after: {self.snps_per_dhs.sum()}")
         self.bim = self.bim.iloc[testable_snps, :].reset_index(drop=True)
+        
+        # convert [SNP x indiv] to [SNP x sample]
+        self.bed = self.bed[:, self.indiv2samples_idx]
 
     def find_snps_per_dhs(self):
         phenotype_len = len(self.dhs_masterlist.index)
@@ -275,16 +304,16 @@ class QTLPreprocessing:
         return res * (self.bed != -1).astype(bool)  # [SNP x sample]
 
     def load_covariates(self):
-        gt_covariates = pd.read_table(f'{self.plink_prefix}.eigenvec')
-        assert gt_covariates['IID'].tolist() == self.fam['indiv_id'].tolist()
-        sample_pcs = gt_covariates.loc[self.indiv2samples_idx].iloc[:, 2:].to_numpy()
         if self.additional_covariates is not None:
             additional_covs = pd.read_table(
                 self.additional_covariates).set_index('ag_id').loc[self.samples_order]
             self.covariates = additional_covs.to_numpy()
             # self.covariates = np.concatenate(
-                #[sample_pcs, additional_covs.to_numpy()], axis=1)  # [sample x covariate]
+            # [sample_pcs, additional_covs.to_numpy()], axis=1)  # [sample x covariate]
         else:
+            gt_covariates = pd.read_table(f'{self.plink_prefix}.eigenvec')
+            assert gt_covariates['IID'].tolist() == self.fam['indiv_id'].tolist()
+            sample_pcs = gt_covariates[self.good_indivs_mask].loc[self.indiv2samples_idx].iloc[:, 2:].to_numpy()
             self.covariates = sample_pcs
 
         self.residualizers = np.array([Residualizer(self.covariates[snp_samples_idx, :], self.cond_num_tr)
