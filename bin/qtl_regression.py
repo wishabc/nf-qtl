@@ -205,7 +205,7 @@ class QTLPreprocessing:
         bad_samples_mask = self.metadata['CT'].isin(bad_cell_types).to_numpy()
         bad_indivs = self.metadata[bad_samples_mask]['index'].unique()
         self.metadata = self.metadata[~bad_samples_mask]
-        if self.metadata['index'].isin(bad_indivs):
+        if self.metadata['index'].isin(bad_indivs).any():
             self.metadata[self.metadata['index'].isin(bad_indivs)].reset_index().to_csv(
                 'bad_samples.tsv', sep='\t', index=False
             )
