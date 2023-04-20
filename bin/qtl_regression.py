@@ -543,7 +543,7 @@ if __name__ == '__main__':
         additional_covariates=args.additional_covariates
     )
     if result is None:
-        print(f'No SNPs passing filters found for {args.chunk_id}, exiting')
+        print(f'No SNPs can be tested for {args.chunk_id}, exiting')
         Path(f"{args.outpath}.result.tsv.gz").touch()
         Path(f"{args.outpath}.coefs.tsv.gz").touch()
         exit(0)
