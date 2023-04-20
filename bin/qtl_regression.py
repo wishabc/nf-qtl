@@ -204,17 +204,12 @@ class QTLPreprocessing:
         # --------- Temporary fix --------
         bad_samples_mask = self.metadata['CT'].isin(bad_cell_types).to_numpy()
         bad_indivs = self.metadata[bad_samples_mask]['index'].unique()
-        self.metadata = self.metadata[~bad_samples_mask]
-        if self.metadata['index'].isin(bad_indivs).any():
+        if self.metadata[~bad_samples_mask]['index'].isin(bad_indivs).any():
             self.metadata[self.metadata['index'].isin(bad_indivs)].reset_index().to_csv(
                 'bad_samples.tsv', sep='\t', index=False
             )
-            fm = self.metadata['index'].isin(bad_indivs)
-            self.metadata = self.metadata[~fm]
-            self.samples_order = self.samples_order[~bad_samples_mask][~fm]
-        self.good_indivs_mask = np.ones(self.bed_dask.shape[1], dtype=bool)
-        self.good_indivs_mask[bad_indivs] = 0
-        self.bed_dask = self.bed_dask[:, self.good_indivs_mask]
+
+        self.bed_dask[:, bad_indivs] = -1
         # --------------------------------
         difference = len(metadata.index) - len(self.metadata.index)
         if difference != 0:
@@ -231,7 +226,12 @@ class QTLPreprocessing:
         before_n = (self.bed != -1).sum()
         if self.mode != 'gt_only':
             # Filter out cell-types with less than 3 distinct genotypes
-            self.valid_samples = self.find_valid_samples_by_cell_type(self.ohe_cell_types.T)  # [SNPs x samples]
+            indiv_to_ct = pd.pivot_table(self.metadata,
+                                         index='CT',
+                                         columns='indiv_id',
+                                         aggfunc=np.shape[0] > 0)
+            ct = np.matmul(self.ohe_cell_types.T, indiv_to_ct)
+            self.valid_samples = self.find_valid_samples_by_cell_type(ct)  # [SNPs x samples]
             self.bed[~self.valid_samples] = -1
         else:
             self.valid_samples = (self.bed != -1)
@@ -241,7 +241,7 @@ class QTLPreprocessing:
         self.valid_samples = self.valid_samples[testable_snps, :]
         print(f"SNPxDHS pairs. Before: {before_n}, after: {self.snps_per_dhs.sum()}")
         self.bim = self.bim.iloc[testable_snps, :].reset_index(drop=True)
-        
+
         # convert [SNP x indiv] to [SNP x sample]
         self.bed = self.bed[:, self.indiv2samples_idx]
 
@@ -292,8 +292,8 @@ class QTLPreprocessing:
         # cell_types - [cell_type x sample]
         # genotypes # [SNP x sample]
         res = np.zeros(self.bed.shape, dtype=bool)
-        for snp_idx, snp_samples in enumerate(self.bed):
-            snp_genotype_by_cell_type = cell_types_matrix * (snp_samples[None, :] + 1) - 1  # [cell_type x sample]
+        for snp_idx, snp_sample_gt in enumerate(self.bed):
+            snp_genotype_by_cell_type = cell_types_matrix * (snp_sample_gt[None, :] + 1) - 1  # [cell_type x sample]
             valid_cell_types_mask, _ = self.filter_by_genotypes_counts_in_matrix(
                 snp_genotype_by_cell_type,
                 return_counts=False
