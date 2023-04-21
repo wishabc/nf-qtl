@@ -239,7 +239,7 @@ class QTLPreprocessing:
 
         # convert [SNP x indiv] to [SNP x sample]
         self.bed = self.bed[:, self.indiv2samples_idx]
-        self.valid_samples = self.valid_samples[self.indiv2samples_idx]
+        self.valid_samples = self.valid_samples[:, self.indiv2samples_idx]
 
     def find_snps_per_dhs(self):
         phenotype_len = len(self.dhs_masterlist.index)
