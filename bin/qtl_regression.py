@@ -129,7 +129,7 @@ class QTLPreprocessing:
         # cell_types enumerated by sample_index
         self.cell_types_list = self.metadata['CT'].to_numpy()
         ohe_enc = OneHotEncoder(handle_unknown='ignore', sparse_output=False)
-        self.ohe_cell_types = ohe_enc.fit_transform(self.cell_types_list.reshape(-1, 1))
+        self.ohe_cell_types = ohe_enc.fit_transform(self.cell_types_list.reshape(-1, 1)).astype(bool)
         self.ct_names = ohe_enc.categories_[0]
 
     def read_dhs_matrix_meta(self, dhs_masterlist_path, samples_order):
