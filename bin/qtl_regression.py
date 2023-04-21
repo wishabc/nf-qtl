@@ -109,9 +109,9 @@ class QTLPreprocessing:
         # FIXME for multiple variants case
         residualzer = residualizers[0]
         g_res = np.full(g[0].shape, np.nan)
-        g_res[self.valid_samples] = residualzer.transform(g[:, self.valid_samples].T).T[0]
+        g_res[self.valid_samples] = residualzer.transform(g[self.valid_samples].T).T[0]
         p_res = np.full(p[0].shape, np.nan)
-        p_res[self.valid_samples] = residualzer.transform(p[:, self.valid_samples].T).T[0]
+        p_res[self.valid_samples] = residualzer.transform(p[self.valid_samples].T).T[0]
         res_dict = {
             'P': p[0],
             'G': g[0],
