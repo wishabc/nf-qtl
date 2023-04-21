@@ -226,8 +226,8 @@ class QTLPreprocessing:
         before_n = (self.bed != -1).sum()
         if self.mode != 'gt_only':
             # Filter out cell-types with less than 3 distinct genotypes
-            indiv_to_ct = pd.pivot_table(self.metadata,
-                                         index=self.metadata.index,
+            indiv_to_ct = pd.pivot_table(self.metadata.reset_index(),
+                                         index='ag_id',
                                          columns='indiv_id',
                                          aggfunc=lambda x: np.shape(x)[0] > 0)
             ct = np.matmul(self.ohe_cell_types.T, indiv_to_ct) > 0
