@@ -37,8 +37,8 @@ class QTLPreprocessing:
                  valid_dhs=None, mode='gt_only', cond_num_tr=100):
         self.dhs_matrix = dhs_matrix_path
         self.mode = mode
-        self.min_samples_per_genotype = 3
-        self.min_unique_genotypes = 2
+        self.min_individuals_per_genotype = 2
+        self.min_unique_genotypes = 3
         self.n_cell_types = 2
         self.plink_prefix = plink_prefix
         self.cond_num_tr = cond_num_tr
@@ -276,21 +276,22 @@ class QTLPreprocessing:
         homref = (matrix == 0).sum(axis=1)
         het = (matrix == 1).sum(axis=1)
         homalt = (matrix == 2).sum(axis=1)
-        res = ((homref >= self.min_samples_per_genotype).astype(np.int8)
-               + (het >= self.min_samples_per_genotype).astype(np.int8)
-               + (homalt >= self.min_samples_per_genotype).astype(np.int8)
+        res = ((homref >= self.min_individuals_per_genotype).astype(np.int8)
+               + (het >= self.min_individuals_per_genotype).astype(np.int8)
+               + (homalt >= self.min_individuals_per_genotype).astype(np.int8)
                ) >= self.min_unique_genotypes
 
         counts = [homref, het, homalt] if return_counts else None
         return res, counts
 
     def find_valid_samples_by_cell_type(self):
-        cell_types_matrix = np.zeros((self.ohe_cell_types.shape[1], self.bed.shape[1]), dtype=bool) # - [cell_type x sample]
+        cell_types_matrix = np.zeros((self.ohe_cell_types.shape[1], self.bed.shape[1]),
+                                     dtype=bool)  # - [cell_type x sample]
         for sample_idx, indiv_index in enumerate(self.indiv2samples_idx):
             cell_types_matrix[:, indiv_index] += self.ohe_cell_types[sample_idx, :]
 
         res = np.zeros(self.bed.shape, dtype=bool)
-        for snp_idx, snp_sample_gt in enumerate(self.bed): # genotypes [SNP x indiv]
+        for snp_idx, snp_sample_gt in enumerate(self.bed):  # genotypes [SNP x indiv]
             snp_genotype_by_cell_type = cell_types_matrix * (snp_sample_gt[None, :] + 1) - 1  # [cell_type x sample]
             valid_cell_types_mask, _ = self.filter_by_genotypes_counts_in_matrix(
                 snp_genotype_by_cell_type,
@@ -398,10 +399,10 @@ class QTLmapper:
         design = residualizer.transform(snp_genotypes.T).T
         phenotype_residuals = residualizer.transform(snp_phenotypes.T).T
         if self.mode != 'ct_only':
-            
+
             try:
                 n_hom_ref, n_het, n_hom_alt = np.unique(snp_genotypes, return_counts=True)[1]
-            except:
+            except Exception:
                 print(np.unique(snp_genotypes, return_counts=True))
                 raise
         else:
