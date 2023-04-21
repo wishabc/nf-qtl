@@ -212,6 +212,7 @@ class QTLPreprocessing:
 
         self.indiv2samples_idx = self.metadata['index'].to_numpy()
         self.indiv_names = self.metadata['indiv_id'].to_numpy()
+        self.bed_dask = self.bed_dask[:, self.indiv2samples_idx]
 
     def filter_invalid_test_pairs(self):
         invalid_phens = self.find_snps_per_dhs()
@@ -239,8 +240,8 @@ class QTLPreprocessing:
         self.bim = self.bim.iloc[testable_snps, :].reset_index(drop=True)
 
         # convert [SNP x indiv] to [SNP x sample]
-        self.bed = self.bed[:, self.indiv2samples_idx]
-        self.valid_samples = self.valid_samples[:, self.indiv2samples_idx]
+        
+        self.valid_samples = self.valid_samples
 
     def find_snps_per_dhs(self):
         phenotype_len = len(self.dhs_masterlist.index)
@@ -286,22 +287,22 @@ class QTLPreprocessing:
         return res, counts
 
     def find_valid_samples_by_cell_type(self):
-        cell_types_matrix = np.zeros((self.ohe_cell_types.shape[1], self.bed.shape[1]),
-                                     dtype=bool)  # - [cell_type x sample]
-        for sample_idx, indiv_index in enumerate(self.indiv2samples_idx):
-            cell_types_matrix[:, indiv_index] += self.ohe_cell_types[sample_idx, :]
+        # cell_types_matrix = np.zeros((self.ohe_cell_types.shape[1], self.bed.shape[1]),
+        #                              dtype=bool)  # - [cell_type x sample]
+        # for sample_idx, indiv_index in enumerate(self.indiv2samples_idx):
+        #     cell_types_matrix[:, indiv_index] += self.ohe_cell_types[sample_idx, :]
 
         res = np.zeros(self.bed.shape, dtype=bool)
         for snp_idx, snp_sample_gt in enumerate(self.bed):  # genotypes [SNP x indiv]
-            snp_genotype_by_cell_type = cell_types_matrix * (snp_sample_gt[None, :] + 1) - 1  # [cell_type x sample]
+            snp_genotype_by_cell_type = self.ohe_cell_types * (snp_sample_gt[None, :] + 1) - 1  # [cell_type x indiv]
             valid_cell_types_mask, _ = self.filter_by_genotypes_counts_in_matrix(
                 snp_genotype_by_cell_type,
                 return_counts=False
             )
             if valid_cell_types_mask.sum() < self.n_cell_types:
                 continue
-            res[snp_idx, :] = np.any(cell_types_matrix[valid_cell_types_mask, :] != 0, axis=0)
-        return res * (self.bed != -1).astype(bool)  # [SNP x sample]
+            res[snp_idx, :] = np.any(self.ohe_cell_types[valid_cell_types_mask, :] != 0, axis=0)
+        return res * (self.bed != -1).astype(bool)  # [SNP x indiv]
 
     def load_covariates(self):
         if self.additional_covariates is not None:
