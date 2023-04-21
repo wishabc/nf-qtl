@@ -287,6 +287,7 @@ class QTLPreprocessing:
         return res, counts
 
     def find_valid_samples_by_cell_type(self):
+        cell_types_matrix = self.ohe_cell_types.T
         # cell_types_matrix = np.zeros((self.ohe_cell_types.shape[1], self.bed.shape[1]),
         #                              dtype=bool)  # - [cell_type x sample]
         # for sample_idx, indiv_index in enumerate(self.indiv2samples_idx):
@@ -294,14 +295,14 @@ class QTLPreprocessing:
 
         res = np.zeros(self.bed.shape, dtype=bool)
         for snp_idx, snp_sample_gt in enumerate(self.bed):  # genotypes [SNP x indiv]
-            snp_genotype_by_cell_type = self.ohe_cell_types.T * (snp_sample_gt[None, :] + 1) - 1  # [cell_type x indiv]
+            snp_genotype_by_cell_type = cell_types_matrix * (snp_sample_gt[None, :] + 1) - 1  # [cell_type x indiv]
             valid_cell_types_mask, _ = self.filter_by_genotypes_counts_in_matrix(
                 snp_genotype_by_cell_type,
                 return_counts=False
             )
             if valid_cell_types_mask.sum() < self.n_cell_types:
                 continue
-            res[snp_idx, :] = np.any(self.ohe_cell_types[valid_cell_types_mask, :] != 0, axis=0)
+            res[snp_idx, :] = np.any(cell_types_matrix[valid_cell_types_mask, :] != 0, axis=0)
         return res * (self.bed != -1).astype(bool)  # [SNP x indiv]
 
     def load_covariates(self):
