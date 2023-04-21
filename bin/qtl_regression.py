@@ -294,7 +294,7 @@ class QTLPreprocessing:
 
         res = np.zeros(self.bed.shape, dtype=bool)
         for snp_idx, snp_sample_gt in enumerate(self.bed):  # genotypes [SNP x indiv]
-            snp_genotype_by_cell_type = self.ohe_cell_types * (snp_sample_gt[None, :] + 1) - 1  # [cell_type x indiv]
+            snp_genotype_by_cell_type = self.ohe_cell_types.T * (snp_sample_gt[None, :] + 1) - 1  # [cell_type x indiv]
             valid_cell_types_mask, _ = self.filter_by_genotypes_counts_in_matrix(
                 snp_genotype_by_cell_type,
                 return_counts=False
