@@ -226,12 +226,7 @@ class QTLPreprocessing:
         before_n = (self.bed != -1).sum()
         if self.mode != 'gt_only':
             # Filter out cell-types with less than 3 distinct genotypes
-            indiv_to_ct = pd.pivot(self.metadata.reset_index(),
-                                         index='ag_id',
-                                         columns='indiv_id').to_numpy()
-            print(indiv_to_ct.shape)
-            ct = np.matmul(self.ohe_cell_types.T, indiv_to_ct) > 0
-            self.valid_samples = self.find_valid_samples_by_cell_type(ct)  # [SNPs x samples]
+            self.valid_samples = self.find_valid_samples_by_cell_type()  # [SNPs x samples]
             self.bed[~self.valid_samples] = -1
         else:
             self.valid_samples = (self.bed != -1)
@@ -288,11 +283,14 @@ class QTLPreprocessing:
         counts = [homref, het, homalt] if return_counts else None
         return res, counts
 
-    def find_valid_samples_by_cell_type(self, cell_types_matrix):
-        # cell_types - [cell_type x sample]
-        # genotypes # [SNP x sample]
+    def find_valid_samples_by_cell_type(self):
+        cell_types_matrix = np.zeros((self.ohe_cell_types.shape[1], self.bed.shape[1]), dtype=bool) # - [cell_type x sample]
+        print(self.ohe_cell_types.T.shape)
+        for sample_idx, indiv_index in enumerate(self.indiv2samples_idx):
+            cell_types_matrix[indiv_index, :] += self.ohe_cell_types[sample_idx, :]
+
         res = np.zeros(self.bed.shape, dtype=bool)
-        for snp_idx, snp_sample_gt in enumerate(self.bed):
+        for snp_idx, snp_sample_gt in enumerate(self.bed): # genotypes [SNP x indiv]
             snp_genotype_by_cell_type = cell_types_matrix * (snp_sample_gt[None, :] + 1) - 1  # [cell_type x sample]
             valid_cell_types_mask, _ = self.filter_by_genotypes_counts_in_matrix(
                 snp_genotype_by_cell_type,
