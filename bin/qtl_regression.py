@@ -284,8 +284,8 @@ class QTLPreprocessing:
         return res, counts
 
     def find_valid_samples_by_cell_type(self):
-        cell_types_matrix = np.zeros((self.ohe_cell_types.shape[1], self.bed.shape[1]), dtype=bool) # - [cell_type x sample]
-        print(self.ohe_cell_types.T.shape)
+        cell_types_matrix = np.zeros((self.bed.shape[1], self.ohe_cell_types.shape[1]), dtype=bool) # - [cell_type x sample]
+        print(self.ohe_cell_types.shape) # [sample x CT]
         for sample_idx, indiv_index in enumerate(self.indiv2samples_idx):
             cell_types_matrix[indiv_index, :] += self.ohe_cell_types[sample_idx, :]
 
