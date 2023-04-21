@@ -109,15 +109,15 @@ class QTLPreprocessing:
         # FIXME for multiple variants case
         residualzer = residualizers[0]
         g_res = np.full(g[0].shape, np.nan)
-        g_res[self.valid_samples] = residualzer.transform(g[self.valid_samples].T).T[0]
+        g_res[self.valid_samples[0]] = residualzer.transform(g[self.valid_samples][:, None].T).T[0]
         p_res = np.full(p[0].shape, np.nan)
-        p_res[self.valid_samples] = residualzer.transform(p[self.valid_samples].T).T[0]
+        p_res[self.valid_samples[0]] = residualzer.transform(p[self.valid_samples][:, None].T).T[0]
         res_dict = {
             'P': p[0],
             'G': g[0],
             'S': self.valid_samples[0],
             'P_res': p_res,
-            'g_res': g_res,
+            'G_res': g_res,
             'indiv_index': self.indiv_names
         }
         if self.mode != 'gt_only':
@@ -161,15 +161,6 @@ class QTLPreprocessing:
             self.dhs_matrix = f['normalized_counts'][dhs_filter, :]  # [DHS x samples]
         assert (~np.isfinite(self.dhs_matrix)).sum() == 0
 
-    def find_testable_snps(self):
-        # TODO: prettify
-        valid_snps_mask, (homref, het, homalt) = self.filter_by_genotypes_counts_in_matrix(
-            self.bed, return_counts=True)
-        if self.allele_frac is None:
-            return valid_snps_mask
-        ma_passing = np.minimum(homref, homalt) * 2 + het >= self.allele_frac * self.bed.shape[1]
-        return ma_passing * valid_snps_mask
-
     def load_snp_data(self):
         self.bim, self.fam, self.bed_dask = read_plink(self.plink_prefix)
         self.bed_dask = 2 - self.bed_dask
@@ -182,6 +173,7 @@ class QTLPreprocessing:
         if self.bim.empty:
             raise NoDataLeftError()
         self.bed = self.bed_dask[snps_index, :].compute()  # [SNPs x indivs]
+        self.bed[:, self.bad_indivs] = -1
         # use eval instead?
         self.bim['variant_id'] = self.bim.apply(
             lambda row: f"{row['chrom']}_{row['pos']}_{row['snp']}_{row['a1']}_{row['a0']}",
@@ -204,8 +196,11 @@ class QTLPreprocessing:
         # --------- Temporary fix --------
         bad_samples_mask = self.metadata['CT'].isin(bad_cell_types).to_numpy()
         bad_indivs = self.metadata[bad_samples_mask]['index'].unique()
+        self.bad_indivs = bad_indivs
         if self.metadata[~bad_samples_mask]['index'].isin(bad_indivs).any():
-            self.metadata[self.metadata['index'].isin(bad_indivs)].reset_index().to_csv(
+            self.metadata[
+                self.metadata['index'].isin(bad_indivs)
+            ].reset_index().to_csv(
                 'bad_samples.tsv', sep='\t', index=False
             )
 
@@ -230,7 +225,13 @@ class QTLPreprocessing:
             self.bed[~self.valid_samples] = -1
         else:
             self.valid_samples = (self.bed != -1)
-        testable_snps = self.find_testable_snps()
+                # TODO: prettify
+        testable_snps, (homref, het, homalt) = self.filter_by_genotypes_counts_in_matrix(
+            self.bed, return_counts=True)
+        if self.allele_frac is not None:
+            ma_passing = np.minimum(homref, homalt) * 2 + het >= self.allele_frac * self.bed.shape[1]
+            testable_snps = ma_passing * testable_snps
+
         self.bed = self.bed[testable_snps, :]  # [SNPs x indivs]
         self.snps_per_dhs = self.snps_per_dhs[:, testable_snps]  # [DHS x SNPs] boolean matrix
         self.valid_samples = self.valid_samples[testable_snps, :]
