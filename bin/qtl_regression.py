@@ -227,10 +227,10 @@ class QTLPreprocessing:
         if self.mode != 'gt_only':
             # Filter out cell-types with less than 3 distinct genotypes
             indiv_to_ct = pd.pivot_table(self.metadata,
-                                         index='CT',
+                                         index=self.metadata.index,
                                          columns='indiv_id',
                                          aggfunc=lambda x: np.shape(x)[0] > 0)
-            ct = np.matmul(self.ohe_cell_types.T, indiv_to_ct)
+            ct = np.matmul(self.ohe_cell_types.T, indiv_to_ct) > 0
             self.valid_samples = self.find_valid_samples_by_cell_type(ct)  # [SNPs x samples]
             self.bed[~self.valid_samples] = -1
         else:
