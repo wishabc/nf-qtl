@@ -229,7 +229,8 @@ class QTLPreprocessing:
             indiv_to_ct = pd.pivot_table(self.metadata.reset_index(),
                                          index='ag_id',
                                          columns='indiv_id',
-                                         aggfunc=lambda x: np.shape(x)[0] > 0)
+                                         aggfunc=lambda x: np.shape(x)[0] > 0).to_numpy()
+            print(indiv_to_ct.shape)
             ct = np.matmul(self.ohe_cell_types.T, indiv_to_ct) > 0
             self.valid_samples = self.find_valid_samples_by_cell_type(ct)  # [SNPs x samples]
             self.bed[~self.valid_samples] = -1
