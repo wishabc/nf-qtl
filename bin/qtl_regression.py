@@ -398,7 +398,12 @@ class QTLmapper:
         design = residualizer.transform(snp_genotypes.T).T
         phenotype_residuals = residualizer.transform(snp_phenotypes.T).T
         if self.mode != 'ct_only':
-            n_hom_ref, n_het, n_hom_alt = np.unique(snp_genotypes, return_counts=True)[1]
+            
+            try:
+                n_hom_ref, n_het, n_hom_alt = np.unique(snp_genotypes, return_counts=True)[1]
+            except:
+                print(np.unique(snp_genotypes, return_counts=True))
+                raise
         else:
             n_hom_ref = n_het = n_hom_alt = np.nan
         df_model = design.shape[1]
