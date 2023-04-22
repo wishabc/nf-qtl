@@ -28,6 +28,11 @@ bad_cell_types = [
 ]
 
 
+def unpack_region(s):
+    chrom, coords = s.split(":")
+    start, end = coords.split("-")
+    return chrom, int(start), int(end)
+
 class QTLPreprocessing:
     window = 500_000
     allele_frac = 0.05
@@ -58,7 +63,7 @@ class QTLPreprocessing:
         self.load_samples_metadata(samples_metadata)
 
     def transform(self, genomic_region):
-        chrom, start, end = self.unpack_region(genomic_region)
+        chrom, start, end = unpack_region(genomic_region)
 
         # Change summit to start/end if needed
         dhs_chunk_mask = (self.dhs_masterlist['#chr'] == chrom) & \
@@ -150,12 +155,6 @@ class QTLPreprocessing:
         else:
             self.valid_dhs = np.ones(len(self.dhs_masterlist.index), dtype=bool)
         self.samples_order = np.loadtxt(samples_order, delimiter='\t', dtype=str)
-
-    @staticmethod
-    def unpack_region(s):
-        chrom, coords = s.split(":")
-        start, end = coords.split("-")
-        return chrom, int(start), int(end)
 
     def load_dhs_matrix(self, dhs_filter):
         self.dhs_masterlist = self.dhs_masterlist[dhs_filter].reset_index(drop=True)
