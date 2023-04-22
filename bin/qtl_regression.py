@@ -103,20 +103,24 @@ class QTLPreprocessing:
             f'chrom == "{chrom}" & pos == {pos} & a0 == "{a0}"'
         )
         self.preprocess(dhs_mask, snps_mask)
-        g = self.bed_by_sample
-        p = self.dhs_matrix
-        residualizers = self.residualizers
+        g = self.bed_by_sample.squeeze()
+        p = self.dhs_matrix.squeeze()
+        valid_samples = self.valid_samples.squeeze()
+        residualizer = self.residualizers[0]
 
         # FIXME for multiple variants case
-        residualzer = residualizers[0]
-        g_res = np.full(g[0].shape, np.nan)
-        g_res[self.valid_samples[0]] = residualzer.transform(g[self.valid_samples][:, None]).T[0]
-        p_res = np.full(p[0].shape, np.nan)
-        p_res[self.valid_samples[0]] = residualzer.transform(p[self.valid_samples][:, None]).T[0]
+        g_res = np.full(g.shape[0], np.nan)
+        g_res[valid_samples] = residualizer.transform(
+            g[valid_samples][None, :]
+        ).squeeze()
+        p_res = np.full(p.shape[0], np.nan)
+        p_res[valid_samples] = residualizer.transform(
+            p[valid_samples][None, :]
+        ).squeeze()
         res_dict = {
-            'P': p[0],
-            'G': g[0],
-            'S': self.valid_samples[0],
+            'P': p,
+            'G': g,
+            'S': valid_samples,
             'P_res': p_res,
             'G_res': g_res,
             'indiv_index': self.indiv_names
