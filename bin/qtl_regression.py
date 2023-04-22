@@ -92,6 +92,8 @@ class QTLPreprocessing:
             self.include_cell_type_info()  # [SNPs x samples]
 
         self.filter_invalid_test_pairs()
+        self.bed = self.bed[:, self.indiv2samples_idx]
+        self.valid_samples = self.valid_samples[:, self.indiv2samples_idx]
         self.load_covariates()
 
     def extract_variant_dhs_signal(self, variant_id, dhs_chunk_id):
@@ -109,9 +111,9 @@ class QTLPreprocessing:
         # FIXME for multiple variants case
         residualzer = residualizers[0]
         g_res = np.full(g[0].shape, np.nan)
-        g_res[self.valid_samples[0]] = residualzer.transform(g[self.valid_samples][:, None].T).T[0]
+        g_res[self.valid_samples[0]] = residualzer.transform(g[self.valid_samples][:, None]).T[0]
         p_res = np.full(p[0].shape, np.nan)
-        p_res[self.valid_samples[0]] = residualzer.transform(p[self.valid_samples][:, None].T).T[0]
+        p_res[self.valid_samples[0]] = residualzer.transform(p[self.valid_samples][:, None]).T[0]
         res_dict = {
             'P': p[0],
             'G': g[0],
@@ -212,7 +214,6 @@ class QTLPreprocessing:
 
         self.indiv2samples_idx = self.metadata['index'].to_numpy()
         self.indiv_names = self.metadata['indiv_id'].to_numpy()
-        self.bed_dask = self.bed_dask[:, self.indiv2samples_idx]
 
     def filter_invalid_test_pairs(self):
         invalid_phens = self.find_snps_per_dhs()
@@ -226,7 +227,7 @@ class QTLPreprocessing:
             self.bed[~self.valid_samples] = -1
         else:
             self.valid_samples = (self.bed != -1)
-                # TODO: prettify
+        # TODO: prettify
         testable_snps, (homref, het, homalt) = self.filter_by_genotypes_counts_in_matrix(
             self.bed, return_counts=True)
         if self.allele_frac is not None:
@@ -238,10 +239,6 @@ class QTLPreprocessing:
         self.valid_samples = self.valid_samples[testable_snps, :]
         print(f"SNPxDHS pairs. Before: {before_n}, after: {self.snps_per_dhs.sum()}")
         self.bim = self.bim.iloc[testable_snps, :].reset_index(drop=True)
-
-        # convert [SNP x indiv] to [SNP x sample]
-        
-        self.valid_samples = self.valid_samples
 
     def find_snps_per_dhs(self):
         phenotype_len = len(self.dhs_masterlist.index)
@@ -287,15 +284,18 @@ class QTLPreprocessing:
         return res, counts
 
     def find_valid_samples_by_cell_type(self):
-        cell_types_matrix = self.ohe_cell_types.T
-        # cell_types_matrix = np.zeros((self.ohe_cell_types.shape[1], self.bed.shape[1]),
-        #                              dtype=bool)  # - [cell_type x sample]
-        # for sample_idx, indiv_index in enumerate(self.indiv2samples_idx):
-        #     cell_types_matrix[:, indiv_index] += self.ohe_cell_types[sample_idx, :]
+        # cell_types_matrix = self.ohe_cell_types.T
+        cell_types_matrix = np.zeros(
+            (self.ohe_cell_types.shape[1], self.bed.shape[1]),
+            dtype=bool
+        )  # - [cell_type x indiv]
+        for sample_idx, indiv_index in enumerate(self.indiv2samples_idx):
+            cell_types_matrix[:, indiv_index] += self.ohe_cell_types[sample_idx, :]
+        cell_types_matrix = cell_types_matrix.astype(bool)
 
         res = np.zeros(self.bed.shape, dtype=bool)
         for snp_idx, snp_sample_gt in enumerate(self.bed):  # genotypes [SNP x indiv]
-            snp_genotype_by_cell_type = cell_types_matrix * (snp_sample_gt[None, :] + 1) - 1  # [cell_type x indiv]
+            snp_genotype_by_cell_type = cell_types_matrix.astype(bool) * (snp_sample_gt[None, :] + 1) - 1  # [cell_type x indiv]
             valid_cell_types_mask, _ = self.filter_by_genotypes_counts_in_matrix(
                 snp_genotype_by_cell_type,
                 return_counts=False
