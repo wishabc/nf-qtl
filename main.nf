@@ -144,8 +144,8 @@ process merge_files {
 	script:
 	out_prefix = "caqtl_${mode}"
 	"""
-	echo "${results}" | tr " " "\n" > results.filelist.txt
-	echo "${coeffs}" | tr " " "\n" > coeffs.filelist.txt
+	ls *.result.tsv.gz > results.filelist.txt
+	ls *.coefs.tsv.gz > coeffs.filelist.txt
 	python3 $moduleDir/bin/merge_results.py \
 		results.filelist.txt \
 		coeffs.filelist.txt \
