@@ -548,7 +548,7 @@ def main(chunk_id, masterlist_path, non_nan_mask_path, phenotype_matrix_path,
         return None
     # ------------ Run regressions -----------
     if qtl_mapper.singular_matrix_count > 0:
-        print(f'{qtl_mapper.singular_matrix_count} SNPs excluded! Singular matrix.')
+        print(f'{qtl_mapper.singular_matrix_count - qtl_mapper.poorly_conditioned} SNPs excluded! Singular matrix.')
     if qtl_mapper.poorly_conditioned > 0:
         print(f'{qtl_mapper.poorly_conditioned} SNPs excluded! Poorly conditioned residuals.')
     print(f"Processing finished in {time.perf_counter() - t}s")
