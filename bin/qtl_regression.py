@@ -47,7 +47,7 @@ class QTLPreprocessing:
         self.additional_covariates = additional_covariates
 
         self.dhs_masterlist = self.indiv_names = self.samples_order = None
-        self.bim = self.fam = self.bed = self.bed_dask = self.snps_per_dhs = None
+        self.bim = self.fam = self.bed = self.bed_by_sample = self.bed_dask = self.snps_per_dhs = None
 
         self.cell_types_list = self.ct_names = self.good_indivs_mask = None
         self.metadata = self.ordered_meta = self.indiv2samples_idx = self.ohe_cell_types = None
@@ -74,7 +74,7 @@ class QTLPreprocessing:
         return QTLmapper(
             phenotype_matrix=self.dhs_matrix,
             snps_per_dhs=self.snps_per_dhs,
-            genotype_matrix=self.bed,
+            genotype_matrix=self.bed_by_sample,
             samples_per_snps=self.valid_samples,
             residualizers=self.residualizers,
             snps_data=self.bim[['variant_id', 'pos']],
@@ -92,9 +92,8 @@ class QTLPreprocessing:
             self.include_cell_type_info()  # [SNPs x samples]
 
         self.filter_invalid_test_pairs()
-        self.bed = self.bed[:, self.indiv2samples_idx]
-        self.valid_samples = self.valid_samples[:, self.indiv2samples_idx]
         self.load_covariates()
+        self.bed = None
 
     def extract_variant_dhs_signal(self, variant_id, dhs_chunk_id):
         dhs_mask = self.dhs_masterlist['chunk_id'] == dhs_chunk_id
@@ -104,7 +103,7 @@ class QTLPreprocessing:
             f'chrom == "{chrom}" & pos == {pos} & a0 == "{a0}"'
         )
         self.preprocess(dhs_mask, snps_mask)
-        g = self.bed
+        g = self.bed_by_sample
         p = self.dhs_matrix
         residualizers = self.residualizers
 
@@ -174,7 +173,7 @@ class QTLPreprocessing:
         if self.bim.empty:
             raise NoDataLeftError()
         self.bed = self.bed_dask[snps_index, :].compute()  # [SNPs x indivs]
-        self.bed[:, self.bad_indivs] = -1
+        self.bed_by_sample = self.bed[:, self.indiv2samples_idx]
         # use eval instead?
         self.bim['variant_id'] = self.bim.apply(
             lambda row: f"{row['chrom']}_{row['pos']}_{row['snp']}_{row['a1']}_{row['a0']}",
@@ -197,7 +196,6 @@ class QTLPreprocessing:
         # --------- Temporary fix --------
         bad_samples_mask = self.metadata['CT'].isin(bad_cell_types).to_numpy()
         bad_indivs = self.metadata[bad_samples_mask]['index'].unique()
-        self.bad_indivs = bad_indivs
         if self.metadata[~bad_samples_mask]['index'].isin(bad_indivs).any():
             self.metadata[
                 self.metadata['index'].isin(bad_indivs)
@@ -219,20 +217,20 @@ class QTLPreprocessing:
         self.dhs_matrix = self.dhs_matrix[~invalid_phens, :]
         self.snps_per_dhs = self.snps_per_dhs[~invalid_phens, :]  # [DHS x SNPs] boolean matrix
         self.dhs_masterlist = self.dhs_masterlist.iloc[~invalid_phens, :].reset_index(drop=True)
-        before_n = (self.bed != -1).sum()
-        self.valid_samples = (self.bed != -1)
+        before_n = (self.bed_by_sample != -1).sum()
+        self.valid_samples = (self.bed_by_sample != -1)
         if self.mode != 'gt_only':
             # Filter out cell-types with less than 3 distinct genotypes
             self.valid_samples *= self.find_valid_samples_by_cell_type()  # [SNPs x samples]
 
-        self.bed[~self.valid_samples] = -1
+        self.bed_by_sample[~self.valid_samples] = -1
         testable_snps, (homref, het, homalt) = self.filter_by_genotypes_counts_in_matrix(
-            self.bed, return_counts=True)
+            self.bed_by_sample, return_counts=True)
         if self.allele_frac is not None:
             ma_passing = np.minimum(homref, homalt) * 2 + het >= self.allele_frac * self.bed.shape[1]
             testable_snps = ma_passing * testable_snps
 
-        self.bed = self.bed[testable_snps, :]  # [SNPs x indivs]
+        self.bed_by_sample = self.bed_by_sample[testable_snps, :]  # [SNPs x indivs]
         self.snps_per_dhs = self.snps_per_dhs[:, testable_snps]  # [DHS x SNPs] boolean matrix
         self.valid_samples = self.valid_samples[testable_snps, :]
         print(f"SNPxDHS pairs. Before: {before_n}, after: {self.snps_per_dhs.sum()}")
@@ -295,20 +293,22 @@ class QTLPreprocessing:
             dtype=bool
         )
         for snp_idx, snp_sample_gt in enumerate(self.bed):  # genotypes [SNP x indiv]
-            snp_genotype_by_cell_type = cell_types_matrix.astype(bool) * (snp_sample_gt[None, :] + 1) - 1  # [cell_type x indiv]
+            # [cell_type x indiv]
+            snp_genotype_by_cell_type = cell_types_matrix.astype(bool) * (snp_sample_gt[None, :] + 1) - 1
             valid_cell_types_mask, _ = self.filter_by_genotypes_counts_in_matrix(
                 snp_genotype_by_cell_type,
                 return_counts=False
             )
             if valid_cell_types_mask.sum() < self.n_cell_types:
                 continue
-            res[snp_idx, :] = np.any(cell_types_matrix[valid_cell_types_mask, :] != 0, axis=0)
+            res[snp_idx, :] = np.any(self.ohe_cell_types[valid_cell_types_mask, :] != 0, axis=0)
         return res.astype(bool)  # [SNP x indiv]
 
     def load_covariates(self):
         if self.additional_covariates is not None:
             additional_covs = pd.read_table(
-                self.additional_covariates).set_index('ag_id').loc[self.samples_order]
+                self.additional_covariates
+            ).set_index('ag_id').loc[self.samples_order]
             self.covariates = additional_covs.to_numpy()
             # self.covariates = np.concatenate(
             # [sample_pcs, additional_covs.to_numpy()], axis=1)  # [sample x covariate]
