@@ -128,7 +128,6 @@ class QTLPreprocessing:
         return pd.DataFrame(res_dict)
 
     def include_cell_type_info(self):
-        # cell_types enumerated by sample_index
         self.cell_types_list = self.metadata['CT'].to_numpy()
         ohe_enc = OneHotEncoder(handle_unknown='ignore', sparse_output=False)
         self.ohe_cell_types = ohe_enc.fit_transform(self.cell_types_list.reshape(-1, 1)).astype(bool)
@@ -221,13 +220,12 @@ class QTLPreprocessing:
         self.snps_per_dhs = self.snps_per_dhs[~invalid_phens, :]  # [DHS x SNPs] boolean matrix
         self.dhs_masterlist = self.dhs_masterlist.iloc[~invalid_phens, :].reset_index(drop=True)
         before_n = (self.bed != -1).sum()
+        self.valid_samples = (self.bed != -1)
         if self.mode != 'gt_only':
             # Filter out cell-types with less than 3 distinct genotypes
-            self.valid_samples = self.find_valid_samples_by_cell_type()  # [SNPs x samples]
-            self.bed[~self.valid_samples] = -1
-        else:
-            self.valid_samples = (self.bed != -1)
-        # TODO: prettify
+            self.valid_samples *= self.find_valid_samples_by_cell_type()  # [SNPs x samples]
+
+        self.bed[~self.valid_samples] = -1
         testable_snps, (homref, het, homalt) = self.filter_by_genotypes_counts_in_matrix(
             self.bed, return_counts=True)
         if self.allele_frac is not None:
@@ -291,9 +289,11 @@ class QTLPreprocessing:
         )  # - [cell_type x indiv]
         for sample_idx, indiv_index in enumerate(self.indiv2samples_idx):
             cell_types_matrix[:, indiv_index] += self.ohe_cell_types[sample_idx, :]
-        cell_types_matrix = cell_types_matrix.astype(bool)
 
-        res = np.zeros(self.bed.shape, dtype=bool)
+        res = np.zeros(
+            (self.bed.shape[0], self.indiv2samples_idx.shape[0]),
+            dtype=bool
+        )
         for snp_idx, snp_sample_gt in enumerate(self.bed):  # genotypes [SNP x indiv]
             snp_genotype_by_cell_type = cell_types_matrix.astype(bool) * (snp_sample_gt[None, :] + 1) - 1  # [cell_type x indiv]
             valid_cell_types_mask, _ = self.filter_by_genotypes_counts_in_matrix(
@@ -303,7 +303,7 @@ class QTLPreprocessing:
             if valid_cell_types_mask.sum() < self.n_cell_types:
                 continue
             res[snp_idx, :] = np.any(cell_types_matrix[valid_cell_types_mask, :] != 0, axis=0)
-        return res * (self.bed != -1).astype(bool)  # [SNP x indiv]
+        return res.astype(bool)  # [SNP x indiv]
 
     def load_covariates(self):
         if self.additional_covariates is not None:
