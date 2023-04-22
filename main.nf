@@ -146,7 +146,7 @@ process merge_files {
 	"""
 	echo "${results}" | tr " " "\n" > results.filelist.txt
 	echo "${coeffs}" | tr " " "\n" > coeffs.filelist.txt
-	python3 $moduleDir/bin/normalize_counts.py \
+	python3 $moduleDir/bin/merge_results.py \
 		results.filelist.txt \
 		coeffs.filelist.txt \
 		${out_prefix}
