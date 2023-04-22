@@ -301,7 +301,7 @@ class QTLPreprocessing:
             )
             if valid_cell_types_mask.sum() < self.n_cell_types:
                 continue
-            res[snp_idx, :] = np.any(self.ohe_cell_types[valid_cell_types_mask, :] != 0, axis=0)
+            res[snp_idx, :] = np.any(self.ohe_cell_types.T[valid_cell_types_mask, :] != 0, axis=0)
         return res.astype(bool)  # [SNP x indiv]
 
     def load_covariates(self):
