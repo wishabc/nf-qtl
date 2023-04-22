@@ -42,6 +42,5 @@ def main(result_filenames, coefs_filenames, output_prefix):
 if __name__ == '__main__':
     res_files = np.loadtxt(sys.argv[1], dtype=str)
     coefs_filelist = sys.argv[2]		
-    cells_order = sys.argv[3]
-    prefix = sys.argv[4]
+    prefix = sys.argv[3]
     main(res_files, output_prefix=prefix)
