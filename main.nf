@@ -151,8 +151,11 @@ process merge_files {
 		coeffs.filelist.txt \
 		${out_prefix}
 
-	bgzip ${out_prefix}.results.bed > ${out_prefix}.results.bed.gz
-	bgzip ${out_prefix}.coeffs.bed > ${out_prefix}.coeffs.bed.gz
+	bgzip ${out_prefix}.results.bed
+	tabix ${out_prefix}.results.bed.gz
+
+	bgzip ${out_prefix}.coeffs.bed
+	tabix ${out_prefix}.coeffs.bed.gz
 	"""
 }
 
