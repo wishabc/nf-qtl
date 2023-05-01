@@ -61,7 +61,7 @@ class QTLPreprocessing:
         self.initial_bim = self.bim = self.fam = self.bed = self.bed_by_sample = self.bed_dask = None
         self.dhs_matrix = None
         self.snps_per_dhs = self.cell_types_list = self.ct_names = self.good_indivs_mask = None
-        self.metadata = self.ordered_meta = self.indiv2samples_idx = self.ohe_cell_types = None
+        self.metadata = self.ordered_meta = self.id2indiv = self.sample2id = self.ohe_cell_types = None
         self.covariates = self.valid_samples = self.residualizers = None
 
         self.read_dhs_matrix_meta(dhs_masterlist_path, samples_order)
@@ -76,7 +76,7 @@ class QTLPreprocessing:
                          (self.initial_dhs_masterlist['summit'] >= start) & \
                          (self.initial_dhs_masterlist['summit'] < end)
         snps_mask = self.initial_bim.eval(f'chrom == "{chrom}" & pos >= {start - self.window + 1}'
-                                  f' & pos < {end + self.window}').to_numpy().astype(bool)
+                                          f' & pos < {end + self.window}').to_numpy().astype(bool)
 
         self.preprocess(dhs_chunk_mask, snps_mask)
         if self.valid_samples.sum() == 0:
@@ -169,6 +169,7 @@ class QTLPreprocessing:
         with h5py.File(self.dhs_matrix_path, 'r') as f:
             self.dhs_matrix = f['normalized_counts'][dhs_filter, :]  # [DHS x samples]
         assert (~np.isfinite(self.dhs_matrix)).sum() == 0
+        self.aggregate_samples(self.dhs_matrix, downsample=True)
 
     def load_snp_data(self):
         self.initial_bim, self.fam, self.bed_dask = read_plink(self.plink_prefix)
@@ -182,26 +183,26 @@ class QTLPreprocessing:
         if self.bim.empty:
             raise NoDataLeftError()
         self.bed = self.bed_dask[snps_index, :].compute()  # [SNPs x indivs]
-        self.bed_by_sample = self.bed[:, self.indiv2samples_idx]
+
         # use eval instead?
         self.bim['variant_id'] = self.bim.apply(
             lambda row: f"{row['chrom']}_{row['pos']}_{row['snp']}_{row['a1']}_{row['a0']}",
             axis=1
         )
+        self.aggregate_samples(self.bed, downsample=False)
 
     def load_samples_metadata(self, samples_metadata):
         metadata = pd.read_table(samples_metadata)
-        req_cols = ['ag_id', 'indiv_id']
-        if self.mode != 'gt_only':
-            req_cols.append('CT')
-        try:
-            assert set(req_cols).issubset(metadata.columns)
-        except Exception as e:
-            print(f'{req_cols} not in {metadata.columns}')
-            raise e
-        self.metadata = metadata[req_cols].merge(
+
+        self.metadata = metadata.merge(
             self.fam['indiv_id'].reset_index()
         ).set_index('ag_id').loc[self.samples_order, :]
+        cell_type_by_indiv = self.metadata.sort_values(
+            ['CT', 'indiv_id'], ascending=[True, True]
+        ).drop_duplicates(['CT', 'indiv_id'])[['CT', 'indiv_id', 'index']].reset_index(drop=True)
+        self.id2indiv = cell_type_by_indiv['index'].to_numpy()
+        self.sample2id = self.metadata.merge(cell_type_by_indiv,
+                                             on=['CT', 'indiv_id', 'index'])['index'].to_numpy()
         # --------- Temporary fix --------
         bad_samples_mask = self.metadata['CT'].isin(bad_cell_types).to_numpy()
         bad_indivs = self.metadata[bad_samples_mask]['index'].unique()
@@ -211,7 +212,6 @@ class QTLPreprocessing:
         if difference != 0:
             print(f'{difference} samples has been filtered out!')
 
-        self.indiv2samples_idx = self.metadata['index'].to_numpy()
         self.indiv_names = self.metadata['indiv_id'].to_numpy()
 
     def filter_invalid_test_pairs(self):
@@ -280,23 +280,23 @@ class QTLPreprocessing:
 
         counts = [homref, het, homalt] if return_counts else None
         return res, counts
-    ## NEED TO THINK
-    def aggregate_sample_by_indiv(self, matrix):
-        for sample_idx, indiv_index in enumerate(self.indiv2samples_idx):
-            cell_types_matrix[:, indiv_index] += self.ohe_cell_types[sample_idx, :]
 
+    def aggregate_samples(self, matrix, downsample=True):
+        if downsample:
+            ids_count = self.id2indiv.shape[0]
+            res = np.zeros((matrix.shape[0], ids_count), dtype=matrix.dtype)
+            for sample_id, agg_id in enumerate(self.sample2id):
+                res[:, agg_id] += matrix[:, sample_id]
+            value_counts = np.unique(self.sample2id, return_counts=True)[1]
+            res /= value_counts
+        else:
+            res = matrix[:, self.id2indiv]
+        return res.astype(matrix.dtype)  # [N x id]
 
     def find_valid_samples_by_cell_type(self):
-        # cell_types_matrix = self.ohe_cell_types.T
-        cell_types_matrix = np.zeros(
-            (self.ohe_cell_types.shape[1], self.bed.shape[1]),
-            dtype=bool
-        )  # - [cell_type x indiv]
-        for sample_idx, indiv_index in enumerate(self.indiv2samples_idx):
-            cell_types_matrix[:, indiv_index] += self.ohe_cell_types[sample_idx, :]
-
-        res = np.zeros(self.bed.shape, dtype=bool)
-        for snp_idx, snp_sample_gt in enumerate(self.bed):  # genotypes [SNP x indiv]
+        cell_types_matrix = self.aggregate_samples(self.ohe_cell_types.T, downsample=True)  # - [cell_type x id]
+        res = np.zeros(self.bed.shape, dtype=bool)  # [SNP x id]
+        for snp_idx, snp_sample_gt in enumerate(self.bed):
             # [cell_type x indiv]
             snp_genotype_by_cell_type = cell_types_matrix.astype(bool) * (snp_sample_gt[None, :] + 1) - 1
             valid_cell_types_mask, _ = self.filter_by_genotypes_counts_in_matrix(
@@ -313,13 +313,14 @@ class QTLPreprocessing:
             additional_covs = pd.read_table(
                 self.additional_covariates
             ).set_index('ag_id').loc[self.samples_order]
-            self.covariates = additional_covs.to_numpy()
+            self.covariates = self.aggregate_samples(additional_covs.to_numpy(), downsample=True)
             # self.covariates = np.concatenate(
             # [sample_pcs, additional_covs.to_numpy()], axis=1)  # [sample x covariate]
         else:
+            raise NotImplementedError
             gt_covariates = pd.read_table(f'{self.plink_prefix}.eigenvec')
             assert gt_covariates['IID'].tolist() == self.fam['indiv_id'].tolist()
-            sample_pcs = gt_covariates[self.good_indivs_mask].loc[self.indiv2samples_idx].iloc[:, 2:].to_numpy()
+            sample_pcs = gt_covariates[self.good_indivs_mask].loc[self.id2indiv].iloc[:, 2:].to_numpy()
             self.covariates = sample_pcs
 
         self.residualizers = np.array([Residualizer(self.covariates[snp_samples_idx, :], self.cond_num_tr)
