@@ -289,6 +289,8 @@ class QTLPreprocessing:
             for sample_id, agg_id in enumerate(self.sample2id):
                 res[:, agg_id] += matrix[:, sample_id]
             value_counts = np.unique(self.sample2id, return_counts=True)[1]
+            print(self.sample2id.shape)
+            print(value_counts)
             res /= value_counts[None, :]
         else:
             res = matrix[:, self.id2indiv]
