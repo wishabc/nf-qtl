@@ -286,12 +286,13 @@ class QTLPreprocessing:
         if downsample:
             ids_count = self.id2indiv.shape[0]
             res = np.zeros((matrix.shape[0], ids_count), dtype=matrix.dtype)
+            counts = np.zeros(ids_count)
             for sample_id, agg_id in enumerate(self.sample2id):
                 res[:, agg_id] += matrix[:, sample_id]
-            value_counts = np.unique(self.sample2id, return_counts=True)[1]
-            print(self.sample2id.shape)
-            print(value_counts)
-            res /= value_counts[None, :]
+                counts[agg_id] += 1
+            print(counts.shape)
+            print(counts.min())
+            res /= counts[None, :]
         else:
             res = matrix[:, self.id2indiv]
         return res.astype(matrix.dtype)  # [N x id]
