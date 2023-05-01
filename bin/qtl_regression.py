@@ -304,7 +304,7 @@ class QTLPreprocessing:
         cell_types_matrix = self.reformat_samples(self.ohe_cell_types.T, mode='sum')  # - [cell_type x id]
 
         res = np.zeros(self.bed.shape, dtype=bool)  # [SNP x id]
-        for snp_idx, snp_sample_gt in enumerate(self.bed):
+        for snp_idx, snp_sample_gt in enumerate(self.bed_by_sample):
             # [cell_type x indiv]
             snp_genotype_by_cell_type = cell_types_matrix.astype(bool) * (snp_sample_gt[None, :] + 1) - 1
             valid_cell_types_mask, _ = self.filter_by_genotypes_counts_in_matrix(
