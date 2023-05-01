@@ -33,6 +33,12 @@ def unpack_region(s):
     start, end = coords.split("-")
     return chrom, int(start), int(end)
 
+
+def remove_redundant_columns(matrix):
+    cols_mask = np.any(matrix != 0, axis=0)
+    return matrix[:, cols_mask], cols_mask
+
+
 class QTLPreprocessing:
     window = 500_000
     allele_frac = 0.05
@@ -40,7 +46,7 @@ class QTLPreprocessing:
     def __init__(self, dhs_matrix_path, dhs_masterlist_path, samples_order,
                  plink_prefix, samples_metadata, additional_covariates=None,
                  valid_dhs=None, mode='gt_only', cond_num_tr=100):
-        self.dhs_matrix = dhs_matrix_path
+        self.dhs_matrix_path = dhs_matrix_path
         self.mode = mode
         self.min_individuals_per_genotype = 2
         self.min_unique_genotypes = 3
@@ -51,10 +57,10 @@ class QTLPreprocessing:
         # path to DataFrame with columns ag_id PC1 PC2 ...
         self.additional_covariates = additional_covariates
 
-        self.dhs_masterlist = self.indiv_names = self.samples_order = None
-        self.bim = self.fam = self.bed = self.bed_by_sample = self.bed_dask = self.snps_per_dhs = None
-
-        self.cell_types_list = self.ct_names = self.good_indivs_mask = None
+        self.initial_dhs_masterlist = self.dhs_masterlist = self.indiv_names = self.samples_order = None
+        self.initial_bim = self.bim = self.fam = self.bed = self.bed_by_sample = self.bed_dask = None
+        self.dhs_matrix = None
+        self.snps_per_dhs = self.cell_types_list = self.ct_names = self.good_indivs_mask = None
         self.metadata = self.ordered_meta = self.indiv2samples_idx = self.ohe_cell_types = None
         self.covariates = self.valid_samples = self.residualizers = None
 
@@ -66,10 +72,10 @@ class QTLPreprocessing:
         chrom, start, end = unpack_region(genomic_region)
 
         # Change summit to start/end if needed
-        dhs_chunk_mask = (self.dhs_masterlist['#chr'] == chrom) & \
-                         (self.dhs_masterlist['summit'] >= start) & \
-                         (self.dhs_masterlist['summit'] < end)
-        snps_mask = self.bim.eval(f'chrom == "{chrom}" & pos >= {start - self.window + 1}'
+        dhs_chunk_mask = (self.initial_dhs_masterlist['#chr'] == chrom) & \
+                         (self.initial_dhs_masterlist['summit'] >= start) & \
+                         (self.initial_dhs_masterlist['summit'] < end)
+        snps_mask = self.initial_bim.eval(f'chrom == "{chrom}" & pos >= {start - self.window + 1}'
                                   f' & pos < {end + self.window}').to_numpy().astype(bool)
 
         self.preprocess(dhs_chunk_mask, snps_mask)
@@ -101,10 +107,10 @@ class QTLPreprocessing:
         self.bed = None
 
     def extract_variant_dhs_signal(self, variant_id, dhs_chunk_id):
-        dhs_mask = self.dhs_masterlist['chunk_id'] == dhs_chunk_id
+        dhs_mask = self.initial_dhs_masterlist['chunk_id'] == dhs_chunk_id
 
         chrom, pos, _, _, a0 = variant_id.split('_')
-        snps_mask = self.bim.eval(
+        snps_mask = self.initial_bim.eval(
             f'chrom == "{chrom}" & pos == {pos} & a0 == "{a0}"'
         )
         self.preprocess(dhs_mask, snps_mask)
@@ -143,7 +149,7 @@ class QTLPreprocessing:
 
     def read_dhs_matrix_meta(self, dhs_masterlist_path, samples_order):
         # TODO fix for no header case
-        self.dhs_masterlist = pd.read_table(
+        self.initial_dhs_masterlist = pd.read_table(
             dhs_masterlist_path,
             names=["#chr", "start", "end", "chunk_id", "score", "n_samples", "n_peaks",
                    "dhs_width", "summit", "start_core", "end_core", "avg_score"],
@@ -151,28 +157,28 @@ class QTLPreprocessing:
         )
         if self.valid_dhs is not None:
             self.valid_dhs = np.loadtxt(self.valid_dhs, dtype=bool)
-            self.dhs_masterlist = self.dhs_masterlist[self.valid_dhs]
+            self.initial_dhs_masterlist = self.initial_dhs_masterlist[self.valid_dhs]
         else:
-            self.valid_dhs = np.ones(len(self.dhs_masterlist.index), dtype=bool)
+            self.valid_dhs = np.ones(len(self.initial_dhs_masterlist.index), dtype=bool)
         self.samples_order = np.loadtxt(samples_order, delimiter='\t', dtype=str)
 
     def load_dhs_matrix(self, dhs_filter):
-        self.dhs_masterlist = self.dhs_masterlist[dhs_filter].reset_index(drop=True)
+        self.dhs_masterlist = self.initial_dhs_masterlist[dhs_filter].reset_index(drop=True)
         if self.dhs_masterlist.empty:
             raise NoDataLeftError()
-        with h5py.File(self.dhs_matrix, 'r') as f:
+        with h5py.File(self.dhs_matrix_path, 'r') as f:
             self.dhs_matrix = f['normalized_counts'][dhs_filter, :]  # [DHS x samples]
         assert (~np.isfinite(self.dhs_matrix)).sum() == 0
 
     def load_snp_data(self):
-        self.bim, self.fam, self.bed_dask = read_plink(self.plink_prefix)
+        self.initial_bim, self.fam, self.bed_dask = read_plink(self.plink_prefix)
         self.bed_dask = 2 - self.bed_dask
         self.bed_dask[np.isnan(self.bed_dask)] = -1
         self.bed_dask = self.bed_dask.astype(np.int8, copy=False)
         self.fam.rename(columns={'iid': 'indiv_id'}, inplace=True)
 
     def load_snp_matrix(self, snps_index):
-        self.bim = self.bim.loc[snps_index].reset_index(drop=True)
+        self.bim = self.initial_bim.loc[snps_index].reset_index(drop=True)
         if self.bim.empty:
             raise NoDataLeftError()
         self.bed = self.bed_dask[snps_index, :].compute()  # [SNPs x indivs]
@@ -199,13 +205,6 @@ class QTLPreprocessing:
         # --------- Temporary fix --------
         bad_samples_mask = self.metadata['CT'].isin(bad_cell_types).to_numpy()
         bad_indivs = self.metadata[bad_samples_mask]['index'].unique()
-        if self.metadata[~bad_samples_mask]['index'].isin(bad_indivs).any():
-            self.metadata[
-                self.metadata['index'].isin(bad_indivs)
-            ].reset_index().to_csv(
-                'bad_samples.tsv', sep='\t', index=False
-            )
-
         self.bed_dask[:, bad_indivs] = -1
         # --------------------------------
         difference = len(metadata.index) - len(self.metadata.index)
@@ -281,6 +280,11 @@ class QTLPreprocessing:
 
         counts = [homref, het, homalt] if return_counts else None
         return res, counts
+    ## NEED TO THINK
+    def aggregate_sample_by_indiv(self, matrix):
+        for sample_idx, indiv_index in enumerate(self.indiv2samples_idx):
+            cell_types_matrix[:, indiv_index] += self.ohe_cell_types[sample_idx, :]
+
 
     def find_valid_samples_by_cell_type(self):
         # cell_types_matrix = self.ohe_cell_types.T
@@ -291,10 +295,7 @@ class QTLPreprocessing:
         for sample_idx, indiv_index in enumerate(self.indiv2samples_idx):
             cell_types_matrix[:, indiv_index] += self.ohe_cell_types[sample_idx, :]
 
-        res = np.zeros(
-            (self.bed.shape[0], self.indiv2samples_idx.shape[0]),
-            dtype=bool
-        )
+        res = np.zeros(self.bed.shape, dtype=bool)
         for snp_idx, snp_sample_gt in enumerate(self.bed):  # genotypes [SNP x indiv]
             # [cell_type x indiv]
             snp_genotype_by_cell_type = cell_types_matrix.astype(bool) * (snp_sample_gt[None, :] + 1) - 1
@@ -304,8 +305,8 @@ class QTLPreprocessing:
             )
             if valid_cell_types_mask.sum() < self.n_cell_types:
                 continue
-            res[snp_idx, :] = np.any(self.ohe_cell_types.T[valid_cell_types_mask, :] != 0, axis=0)
-        return res.astype(bool)  # [SNP x indiv]
+            res[snp_idx, :] = np.any(cell_types_matrix[valid_cell_types_mask, :] != 0, axis=0)
+        return res.astype(bool)  # [SNP x sample]
 
     def load_covariates(self):
         if self.additional_covariates is not None:
@@ -520,11 +521,6 @@ class QTLmapper:
         coefs_res = pd.DataFrame(np.concatenate(coefs_res),
                                  columns=['variant_id', 'chunk_id', 'design_var_index', 'coeff', 'coeff_se'])
         return self.post_processing(stats_res), coefs_res
-
-
-def remove_redundant_columns(matrix):
-    cols_mask = np.any(matrix != 0, axis=0)
-    return matrix[:, cols_mask], cols_mask
 
 
 def main(chunk_id, masterlist_path, non_nan_mask_path, phenotype_matrix_path,
