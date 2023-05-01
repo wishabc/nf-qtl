@@ -289,11 +289,9 @@ class QTLPreprocessing:
         if downsample:
             ids_count = self.id2indiv.shape[0]
             res = np.zeros((matrix.shape[0], ids_count), dtype=matrix.dtype)
-            counts = np.zeros(ids_count)
             for sample_id, agg_id in enumerate(self.sample2id):
                 res[:, agg_id] += matrix[:, sample_id]
-                counts[agg_id] += 1
-            print(self.sample2id)
+            counts = np.unique(self.sample2id, return_counts=True)[1]
             res /= counts[None, :]
         else:
             res = matrix[:, self.id2indiv]
