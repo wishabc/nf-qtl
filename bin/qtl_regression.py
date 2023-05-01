@@ -169,7 +169,7 @@ class QTLPreprocessing:
         with h5py.File(self.dhs_matrix_path, 'r') as f:
             self.dhs_matrix = f['normalized_counts'][dhs_filter, :]  # [DHS x samples]
         assert (~np.isfinite(self.dhs_matrix)).sum() == 0
-        self.dhs_matrix = self.reformat_samples(self.dhs_matrix, downsample=True)
+        self.dhs_matrix = self.reformat_samples(self.dhs_matrix, mode='mean')
 
     def load_snp_data(self):
         self.initial_bim, self.fam, self.bed_dask = read_plink(self.plink_prefix)
@@ -189,7 +189,7 @@ class QTLPreprocessing:
             lambda row: f"{row['chrom']}_{row['pos']}_{row['snp']}_{row['a1']}_{row['a0']}",
             axis=1
         )
-        self.bed_by_sample = self.reformat_samples(self.bed, downsample=False)
+        self.bed_by_sample = self.reformat_samples(self.bed, mode='upsample')
 
     def load_samples_metadata(self, samples_metadata):
         metadata = pd.read_table(samples_metadata)
@@ -285,20 +285,23 @@ class QTLPreprocessing:
         return res, counts
 
     # NEED TO THINK
-    def reformat_samples(self, matrix, downsample=True):
-        if downsample:
+    def reformat_samples(self, matrix, mode='mean'):
+        if mode == 'mean' or mode == 'sum':
             ids_count = self.id2indiv.shape[0]
             res = np.zeros((matrix.shape[0], ids_count), dtype=matrix.dtype)
             for sample_id, agg_id in enumerate(self.sample2id):
                 res[:, agg_id] += matrix[:, sample_id]
-            counts = np.unique(self.sample2id, return_counts=True)[1]
-            res /= counts[None, :]
-        else:
+            if mode == 'mean':
+                counts = np.unique(self.sample2id, return_counts=True)[1]
+                res /= counts[None, :]
+        elif mode == 'upsample':
             res = matrix[:, self.id2indiv]
+        else:
+            raise ValueError
         return res.astype(matrix.dtype)  # [N x id]
 
     def find_valid_samples_by_cell_type(self):
-        cell_types_matrix = self.reformat_samples(self.ohe_cell_types.T, downsample=True)  # - [cell_type x id]
+        cell_types_matrix = self.reformat_samples(self.ohe_cell_types.T, mode='sum')  # - [cell_type x id]
 
         res = np.zeros(self.bed.shape, dtype=bool)  # [SNP x id]
         for snp_idx, snp_sample_gt in enumerate(self.bed):
@@ -318,7 +321,7 @@ class QTLPreprocessing:
             additional_covs = pd.read_table(
                 self.additional_covariates
             ).set_index('ag_id').loc[self.samples_order]
-            self.covariates = self.reformat_samples(additional_covs.to_numpy(), downsample=True)
+            self.covariates = self.reformat_samples(additional_covs.to_numpy(), mode='mean')
             # self.covariates = np.concatenate(
             # [sample_pcs, additional_covs.to_numpy()], axis=1)  # [sample x covariate]
         else:
