@@ -197,12 +197,15 @@ class QTLPreprocessing:
         self.metadata = metadata.merge(
             self.fam['indiv_id'].reset_index()
         ).set_index('ag_id').loc[self.samples_order, :]
+
         cell_type_by_indiv = self.metadata.sort_values(
             ['CT', 'indiv_id'], ascending=[True, True]
         ).drop_duplicates(['CT', 'indiv_id'])[['CT', 'indiv_id', 'index']].reset_index(drop=True)
+        cell_type_by_indiv['cti'] = np.arange(len(cell_type_by_indiv.index))
+
         self.id2indiv = cell_type_by_indiv['index'].to_numpy()
         self.sample2id = self.metadata.merge(cell_type_by_indiv,
-                                             on=['CT', 'indiv_id', 'index'])['index'].to_numpy()
+                                             on=['CT', 'indiv_id', 'index'])['cti'].to_numpy()
         # --------- Temporary fix --------
         bad_samples_mask = self.metadata['CT'].isin(bad_cell_types).to_numpy()
         bad_indivs = self.metadata[bad_samples_mask]['index'].unique()
