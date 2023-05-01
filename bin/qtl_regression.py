@@ -281,6 +281,7 @@ class QTLPreprocessing:
         counts = [homref, het, homalt] if return_counts else None
         return res, counts
 
+    # NEED TO THINK
     def aggregate_samples(self, matrix, downsample=True):
         if downsample:
             ids_count = self.id2indiv.shape[0]
@@ -288,13 +289,14 @@ class QTLPreprocessing:
             for sample_id, agg_id in enumerate(self.sample2id):
                 res[:, agg_id] += matrix[:, sample_id]
             value_counts = np.unique(self.sample2id, return_counts=True)[1]
-            res /= value_counts
+            res /= value_counts[None, :]
         else:
             res = matrix[:, self.id2indiv]
         return res.astype(matrix.dtype)  # [N x id]
 
     def find_valid_samples_by_cell_type(self):
         cell_types_matrix = self.aggregate_samples(self.ohe_cell_types.T, downsample=True)  # - [cell_type x id]
+
         res = np.zeros(self.bed.shape, dtype=bool)  # [SNP x id]
         for snp_idx, snp_sample_gt in enumerate(self.bed):
             # [cell_type x indiv]
@@ -317,7 +319,6 @@ class QTLPreprocessing:
             # self.covariates = np.concatenate(
             # [sample_pcs, additional_covs.to_numpy()], axis=1)  # [sample x covariate]
         else:
-            raise NotImplementedError
             gt_covariates = pd.read_table(f'{self.plink_prefix}.eigenvec')
             assert gt_covariates['IID'].tolist() == self.fam['indiv_id'].tolist()
             sample_pcs = gt_covariates[self.good_indivs_mask].loc[self.id2indiv].iloc[:, 2:].to_numpy()
