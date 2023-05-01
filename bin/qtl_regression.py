@@ -321,8 +321,8 @@ class QTLPreprocessing:
             additional_covs = pd.read_table(
                 self.additional_covariates
             ).set_index('ag_id').loc[self.samples_order]
-            print(additional_covs.to_numpy().shape)
-            self.covariates = self.reformat_samples(additional_covs.to_numpy(), mode='mean')
+
+            self.covariates = self.reformat_samples(additional_covs.to_numpy().T, mode='mean')
             # self.covariates = np.concatenate(
             # [sample_pcs, additional_covs.to_numpy()], axis=1)  # [sample x covariate]
         else:
