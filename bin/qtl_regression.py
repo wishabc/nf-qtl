@@ -202,6 +202,7 @@ class QTLPreprocessing:
         ).drop_duplicates(['CT', 'indiv_id'])[['CT', 'indiv_id', 'index']].reset_index(drop=True)
         cell_type_by_indiv['cti'] = np.arange(len(cell_type_by_indiv.index))
         self.cell_types_list = cell_type_by_indiv['CT'].to_numpy()
+        self.indiv_names = cell_type_by_indiv['indiv_id'].to_numpy()
         self.id2indiv = cell_type_by_indiv['index'].to_numpy()
         self.sample2id = self.metadata.merge(cell_type_by_indiv,
                                              on=['CT', 'indiv_id', 'index'])['cti'].to_numpy()
@@ -214,7 +215,6 @@ class QTLPreprocessing:
         if difference != 0:
             print(f'{difference} samples has been filtered out!')
 
-        self.indiv_names = self.metadata['indiv_id'].to_numpy()
 
     def filter_invalid_test_pairs(self):
         invalid_phens = self.find_snps_per_dhs()
