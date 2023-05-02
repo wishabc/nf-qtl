@@ -426,7 +426,11 @@ class QTLmapper:
         df_residuals = design.shape[0] - df_model - residualizer.n
         if np.linalg.cond(design) >= self.cond_num_tr:
             self.poorly_conditioned += 1
-            print(f'High condition number: {np.linalg.cond(design)}')
+            np.save('design.npy', design)
+            np.save('residualizer_C.npy', residualizer.C)
+            np.save('phenotypes.npy', snp_phenotypes)
+            np.save('genotypes.npy', snp_genotypes)
+            exit(1)
             raise np.linalg.LinAlgError()
         snp_stats, coeffs = self.fit_regression(design, phenotype_residuals,
                                                 df_model, df_residuals)
