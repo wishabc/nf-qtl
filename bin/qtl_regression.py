@@ -82,8 +82,6 @@ class QTLPreprocessing:
         if self.valid_samples.sum() == 0:
             raise NoDataLeftError()
 
-        print(self.dhs_matrix.shape, self.bed_by_sample.shape)
-        raise AssertionError
         return QTLmapper(
             phenotype_matrix=self.dhs_matrix,
             snps_per_dhs=self.snps_per_dhs,
@@ -428,6 +426,7 @@ class QTLmapper:
         df_residuals = design.shape[0] - df_model - residualizer.n
         if np.linalg.cond(design) >= self.cond_num_tr:
             self.poorly_conditioned += 1
+            print(f'High condition number: {np.linalg.cond(design)}')
             raise np.linalg.LinAlgError()
         snp_stats, coeffs = self.fit_regression(design, phenotype_residuals,
                                                 df_model, df_residuals)
@@ -468,6 +467,7 @@ class QTLmapper:
                                                      snp_genotypes=snp_genotypes,
                                                      residualizer=residualizer)
             except np.linalg.LinAlgError:
+                print('')
                 self.singular_matrix_count += 1
                 continue
 
@@ -510,13 +510,14 @@ class QTLmapper:
             current_dhs_data = self.dhs_data.iloc[dhs_idx]
             current_snps_data = self.snps_data.iloc[snps_indices]
 
-            stats, coefs = self.process_dhs(phenotype_matrix=phenotype,
-                                            genotype_matrix=genotypes,
-                                            samples_per_snp=samples_per_snp,
-                                            dhs_residualizers=dhs_residualizers,
-                                            snps_data=current_snps_data,
-                                            dhs_data=current_dhs_data,
-                                            )
+            stats, coefs = self.process_dhs(
+                phenotype_matrix=phenotype,
+                genotype_matrix=genotypes,
+                samples_per_snp=samples_per_snp,
+                dhs_residualizers=dhs_residualizers,
+                snps_data=current_snps_data,
+                dhs_data=current_dhs_data,
+            )
             stats_res.extend(stats)
             coefs_res.extend(coefs)
         if len(stats_res) == 0:
