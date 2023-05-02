@@ -143,7 +143,7 @@ class QTLPreprocessing:
 
     def include_cell_type_info(self):
         ohe_enc = OneHotEncoder(handle_unknown='ignore', sparse_output=False)
-        self.ohe_cell_types = ohe_enc.fit_transform(self.cell_types_list.reshape(-1, 1)).astype(bool)
+        self.ohe_cell_types = ohe_enc.fit_transform(self.metadata['CT'].to_numpy().reshape(-1, 1)).astype(bool)
         self.ct_names = ohe_enc.categories_[0]
 
     def read_dhs_matrix_meta(self, dhs_masterlist_path, samples_order):
@@ -201,7 +201,7 @@ class QTLPreprocessing:
             ['CT', 'indiv_id'], ascending=[True, True]
         ).drop_duplicates(['CT', 'indiv_id'])[['CT', 'indiv_id', 'index']].reset_index(drop=True)
         cell_type_by_indiv['cti'] = np.arange(len(cell_type_by_indiv.index))
-        self.cell_types_list = cell_type_by_indiv['CT']
+        self.cell_types_list = cell_type_by_indiv['CT'].to_numpy()
         self.id2indiv = cell_type_by_indiv['index'].to_numpy()
         self.sample2id = self.metadata.merge(cell_type_by_indiv,
                                              on=['CT', 'indiv_id', 'index'])['cti'].to_numpy()
