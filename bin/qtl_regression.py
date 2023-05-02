@@ -82,6 +82,8 @@ class QTLPreprocessing:
         if self.valid_samples.sum() == 0:
             raise NoDataLeftError()
 
+        print(self.dhs_matrix.shape, self.bed_by_sample.shape)
+        raise AssertionError
         return QTLmapper(
             phenotype_matrix=self.dhs_matrix,
             snps_per_dhs=self.snps_per_dhs,
