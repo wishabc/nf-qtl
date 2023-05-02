@@ -90,7 +90,7 @@ class QTLPreprocessing:
             residualizers=self.residualizers,
             snps_data=self.bim[['variant_id', 'pos']],
             dhs_data=self.dhs_masterlist[["#chr", "start", "end", "chunk_id", "summit"]],
-            ct_data=self.ohe_cell_types,
+            ct_data=self.reformat_samples(self.ohe_cell_types.T, mode='sum'),
             ct_names=self.ct_names,
             cond_num_tr=self.cond_num_tr,
             mode=self.mode
