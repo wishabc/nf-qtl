@@ -504,7 +504,7 @@ class QTLmapper:
             else:
                 used_names = np.full(1, np.nan, dtype=str)
             if not self.use_residualizer:
-                residualizer_vars = np.full(sum([x.shape[1] for x in residualizer.M_list]), 'res', dtype=str)
+                residualizer_vars = np.full(residualizer.n, 'residualizer', dtype=str)
                 used_names = np.concatenate([used_names, residualizer_vars])
             if snp_genotypes.shape[0] - snp_genotypes.shape[1] - residualizer.n < 1:
                 continue
