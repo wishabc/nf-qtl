@@ -209,7 +209,7 @@ class QTLPreprocessing:
             cell_type_by_indiv,
             on=['CT', 'indiv_id', 'index']
         ).set_index('ag_id').loc[self.samples_order, 'cti'].to_numpy()
-        
+
         self.metadata.to_csv('metadata_sorted.tsv', sep='\t')
         cell_type_by_indiv.to_csv('cell_type_by_indiv.tsv', sep='\t')
         # --------- Temporary fix --------
@@ -220,7 +220,6 @@ class QTLPreprocessing:
         difference = len(metadata.index) - len(self.metadata.index)
         if difference != 0:
             print(f'{difference} samples has been filtered out!')
-
 
     def filter_invalid_test_pairs(self):
         invalid_phens = self.find_snps_per_dhs()
@@ -336,8 +335,10 @@ class QTLPreprocessing:
             sample_pcs = gt_covariates[self.good_indivs_mask].loc[self.id2indiv].iloc[:, 2:].to_numpy()
             self.covariates = sample_pcs
 
-        self.residualizers = np.array([Residualizer(self.covariates[snp_samples_idx, :], self.cond_num_tr)
-                                       for snp_samples_idx in self.valid_samples])
+        self.residualizers = np.array([Residualizer(
+            self.covariates[snp_samples_idx, :],
+            self.reformat_samples(self.ohe_cell_types.T, mode='sum').T,
+            cond_num=self.cond_num_tr) for snp_samples_idx in self.valid_samples])
 
 
 class NoDataLeftError(Exception):
@@ -345,27 +346,34 @@ class NoDataLeftError(Exception):
 
 
 class Residualizer:
-    def __init__(self, C, cond_num=100):
+    def __init__(self, *C_list, cond_num=100):
         # center and orthogonalize
-        self.n = np.linalg.matrix_rank(C)
-        self.dof = C.shape[0] - self.n
-        # debug
-        self.C = C
-        if self.dof == 0 or np.linalg.cond(C) > cond_num:
-            self.Q = None
-        else:
-            M, _ = remove_redundant_columns(C)  # to make qr more stable
-            self.Q, _ = np.linalg.qr(M - M.mean(axis=0))
+        if len(C_list) == 0:
+            raise ValueError
+        self.n = 0
+        self.dof = C_list[0].shape[0]
+        self.Q_list = []
+        for C in C_list:
+            self.n += np.linalg.matrix_rank(C)
+            self.dof -= self.n
+            if self.dof <= 0 or np.linalg.cond(C) > cond_num:
+                self.Q_list = None
+                break
+            else:
+                M, _ = remove_redundant_columns(C)  # to make qr more stable
+                Q, _ = np.linalg.qr(M - M.mean(axis=0))
+            self.Q_list.append(Q)
 
     def transform(self, M, center=True):
         """Residualize rows of M wrt columns of C"""
-        if self.Q is None:
+        if self.Q_list is None:
             return None
         M0 = M - M.mean(1, keepdims=True)
-        if center:
-            M0 = M0 - np.matmul(np.matmul(M0, self.Q), self.Q.T)
-        else:
-            M0 = M - np.matmul(np.matmul(M0, self.Q), self.Q.T)
+        for Q in self.Q_list:
+            if center:
+                M0 = M0 - np.matmul(np.matmul(M0, Q), Q.T)
+            else:
+                M0 = M - np.matmul(np.matmul(M0, Q), Q.T)
         return M0
 
 
