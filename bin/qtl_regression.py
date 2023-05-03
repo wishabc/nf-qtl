@@ -353,13 +353,14 @@ class Residualizer:
         self.dof = C_list[0].shape[0]
         self.Q_list = []
         for C in C_list:
-            self.n += np.linalg.matrix_rank(C)
+            M, _ = remove_redundant_columns(C)
+            self.n += np.linalg.matrix_rank(M)
             self.dof -= self.n
-            if self.dof <= 0 or np.linalg.cond(C) > cond_num:
+            if self.dof <= 0 or np.linalg.cond(M) > cond_num:
                 self.Q_list = None
                 break
             
-            M, _ = remove_redundant_columns(C)  # to make qr more stable
+              # to make qr more stable
             Q, _ = np.linalg.qr(M - M.mean(axis=0))
             self.Q_list.append(Q)
 
