@@ -438,6 +438,7 @@ class QTLmapper:
     def fit_statsmodels_regression(X, Y, df_model, df_residuals):
         model = OLS(Y, X)
         res = model.fit()
+        print(res.summary())
         ss_residuals = res.ssr 
         ss_model = res.ess
         if X.shape[0] - 1 != df_residuals: #  there is a residualizer
@@ -454,7 +455,6 @@ class QTLmapper:
             phenotype_residuals = residualizer.transform(snp_phenotypes.T).T
         else:
             design = np.concatenate([snp_genotypes, *residualizer.M_list], axis=1)
-            print(design.shape)
             phenotype_residuals = snp_phenotypes
         if self.mode != 'ct_only':
             n_hom_ref, n_het, n_hom_alt = np.unique(snp_genotypes, return_counts=True)[1]
@@ -503,7 +503,9 @@ class QTLmapper:
                     snp_genotypes = ohe_cell_types
             else:
                 used_names = np.full(1, np.nan, dtype=str)
-
+            if not self.use_residualizer:
+                residualizer_vars = np.full(sum([x.shape[0] for x in residualizer.M_list]), 'res', dtype=str)
+                used_names = np.concatenate([used_names, residualizer_vars])
             if snp_genotypes.shape[0] - snp_genotypes.shape[1] - residualizer.n < 1:
                 continue
 
