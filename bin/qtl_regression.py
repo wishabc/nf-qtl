@@ -82,6 +82,7 @@ class QTLPreprocessing:
         if self.valid_samples.sum() == 0:
             raise NoDataLeftError()
 
+        np.save('initial_ohe.npy', self.ohe_cell_types)
         return QTLmapper(
             phenotype_matrix=self.dhs_matrix,
             snps_per_dhs=self.snps_per_dhs,
