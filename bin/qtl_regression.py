@@ -205,8 +205,10 @@ class QTLPreprocessing:
         self.cell_types_list = cell_type_by_indiv['CT'].to_numpy()
         self.indiv_names = cell_type_by_indiv['indiv_id'].to_numpy()
         self.id2indiv = cell_type_by_indiv['index'].to_numpy()
-        self.sample2id = self.metadata.merge(cell_type_by_indiv,
-                                             on=['CT', 'indiv_id', 'index'])['cti'].to_numpy()
+        self.sample2id = self.metadata.reset_index().merge(
+            cell_type_by_indiv,
+            on=['CT', 'indiv_id', 'index']
+        ).set_index('ag_id').loc[self.samples_order, 'cti'].to_numpy()
         
         self.metadata.to_csv('metadata_sorted.tsv', sep='\t')
         cell_type_by_indiv.to_csv('cell_type_by_indiv.tsv', sep='\t')
