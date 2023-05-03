@@ -452,6 +452,7 @@ class QTLmapper:
             design = residualizer.transform(snp_genotypes.T).T
             phenotype_residuals = residualizer.transform(snp_phenotypes.T).T
         else:
+            print(design.shape)
             design = np.concatenate([snp_genotypes, *residualizer.M_list], axis=1)
             phenotype_residuals = snp_phenotypes
         if self.mode != 'ct_only':
@@ -465,6 +466,7 @@ class QTLmapper:
 
         if np.linalg.cond(design) >= self.cond_num_tr:
             self.poorly_conditioned += 1
+            print('Poorly conditioned')
             raise np.linalg.LinAlgError()
         if self.use_statsmodels:
             snp_stats, coeffs = self.fit_statsmodels_regression(design, phenotype_residuals,
