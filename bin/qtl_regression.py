@@ -70,6 +70,7 @@ class QTLPreprocessing:
         self.load_samples_metadata(samples_metadata)
 
     def setup_mapper(self, **kwargs):
+        kwargs['mode'] = kwargs.get('mode', self.mode)
         return QTLmapper(
             phenotype_matrix=self.dhs_matrix,
             snps_per_dhs=self.snps_per_dhs,
@@ -81,7 +82,6 @@ class QTLPreprocessing:
             ct_data=self.reformat_samples(self.ohe_cell_types.T, mode='sum').T,
             ct_names=self.ct_names,
             cond_num_tr=self.cond_num_tr,
-            mode=self.mode,
             **kwargs
         )
 
