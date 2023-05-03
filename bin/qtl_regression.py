@@ -356,9 +356,10 @@ class Residualizer:
         self.n = 0
         self.dof = C_list[0].shape[0]
         self.Q_list = []
-        self.C_list = C_list
+        self.M_list = []
         for C in C_list:
             M, _ = remove_redundant_columns(C)
+            self.M_list.append(M)
             self.n += np.linalg.matrix_rank(M)
             self.dof -= self.n
             if self.dof <= 0 or np.linalg.cond(M) > cond_num:
@@ -451,7 +452,7 @@ class QTLmapper:
             design = residualizer.transform(snp_genotypes.T).T
             phenotype_residuals = residualizer.transform(snp_phenotypes.T).T
         else:
-            design = np.concatenate([snp_genotypes, *residualizer.C_list], axis=1)
+            design = np.concatenate([snp_genotypes, *residualizer.M_list], axis=1)
             phenotype_residuals = snp_phenotypes
         if self.mode != 'ct_only':
             n_hom_ref, n_het, n_hom_alt = np.unique(snp_genotypes, return_counts=True)[1]
