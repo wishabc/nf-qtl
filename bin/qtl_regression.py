@@ -428,6 +428,8 @@ class QTLmapper:
         ms_residuals = ss_residuals / df_residuals
         if np.any(XtXinv[np.eye(X.shape[1], dtype=bool)][..., None] < 0):
             print('Negative coefs se')
+            np.save('X.npy', X)
+            np.save('Y.npy', Y)
             raise np.linalg.LinAlgError()
         # coeffs standard error
         coeffs_se = np.sqrt(XtXinv[np.eye(X.shape[1], dtype=bool)][..., None] * ms_residuals).astype(float)
