@@ -207,6 +207,9 @@ class QTLPreprocessing:
         self.id2indiv = cell_type_by_indiv['index'].to_numpy()
         self.sample2id = self.metadata.merge(cell_type_by_indiv,
                                              on=['CT', 'indiv_id', 'index'])['cti'].to_numpy()
+        
+        self.metadata.to_csv('metadata_sorted.tsv', sep='\t')
+        cell_type_by_indiv.to_csv('cell_type_by_indiv.tsv', sep='\t')
         # --------- Temporary fix --------
         bad_samples_mask = self.metadata['CT'].isin(bad_cell_types).to_numpy()
         bad_indivs = self.metadata[bad_samples_mask]['index'].unique()
