@@ -462,6 +462,7 @@ class QTLmapper:
             snp_genotypes = genotypes[valid_samples][:, None]  # [samples x 1]
             residualizer = dhs_residualizers[snp_index]
             if residualizer.Q_list is None:
+                print(residualizer.Q_list)
                 self.poorly_conditioned += 1
                 continue
             if self.mode in ('interaction', 'ct_only'):
