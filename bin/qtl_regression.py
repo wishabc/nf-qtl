@@ -414,7 +414,7 @@ class QTLmapper:
         XtX = np.matmul(np.transpose(X), X)
         XtY = np.matmul(np.transpose(X), Y)
         XtXinv = np.linalg.inv(XtX)
-        coeffs = np.matmul(XtXinv, XtY)
+        coeffs = np.matmul(XtXinv, XtY).astype(float)
 
         Y_predicted = np.matmul(X, coeffs)
 
@@ -427,7 +427,7 @@ class QTLmapper:
         if np.any(XtXinv[np.eye(X.shape[1], dtype=bool)][..., None] < 0):
             raise np.linalg.LinAlgError()
         # coeffs standard error
-        coeffs_se = np.sqrt(XtXinv[np.eye(X.shape[1], dtype=bool)][..., None] * ms_residuals)
+        coeffs_se = np.sqrt(XtXinv[np.eye(X.shape[1], dtype=bool)][..., None] * ms_residuals).astype(float)
 
         return [ss_model, ss_residuals, df_model, df_residuals], [coeffs[:, 0], coeffs_se[:, 0]]
 
@@ -442,7 +442,7 @@ class QTLmapper:
         else:
             coeffs_se = res.bse
         coeffs = res.params
-        return [ss_model, ss_residuals, df_model, df_residuals], [coeffs[:, 0], coeffs_se[:, 0]]
+        return [ss_model, ss_residuals, df_model, df_residuals], [coeffs, coeffs_se]
 
 
     def process_snp(self, snp_phenotypes, snp_genotypes, residualizer):
