@@ -443,7 +443,8 @@ class QTLmapper:
         print(res.summary())
         ss_residuals = res.ssr 
         ss_model = res.ess
-        if X.shape[0] - X.shape[1] != df_residuals: #  there is a residualizer
+        if df_residuals + df_model != X.shape[0]: #  there is a residualizer
+            print('ThIS IS RESIDUALIZER!!')
             coeffs_se = res.bse * np.sqrt(X.shape[0] - 1) / np.sqrt(df_residuals)
         else:
             coeffs_se = res.bse
