@@ -68,6 +68,22 @@ class QTLPreprocessing:
         self.load_snp_data()
         self.load_samples_metadata(samples_metadata)
 
+    def setup_mapper(self, **kwargs):
+        return QTLmapper(
+            phenotype_matrix=self.dhs_matrix,
+            snps_per_dhs=self.snps_per_dhs,
+            genotype_matrix=self.bed_by_sample,
+            samples_per_snps=self.valid_samples,
+            residualizers=self.residualizers,
+            snps_data=self.bim[['variant_id', 'pos']],
+            dhs_data=self.dhs_masterlist[["#chr", "start", "end", "chunk_id", "summit"]],
+            ct_data=self.reformat_samples(self.ohe_cell_types.T, mode='sum').T,
+            ct_names=self.ct_names,
+            cond_num_tr=self.cond_num_tr,
+            mode=self.mode,
+            **kwargs
+        )
+
     def transform(self, genomic_region):
         chrom, start, end = unpack_region(genomic_region)
 
@@ -82,20 +98,7 @@ class QTLPreprocessing:
         if self.valid_samples.sum() == 0:
             raise NoDataLeftError()
 
-        np.save('initial_ohe.npy', self.ohe_cell_types)
-        return QTLmapper(
-            phenotype_matrix=self.dhs_matrix,
-            snps_per_dhs=self.snps_per_dhs,
-            genotype_matrix=self.bed_by_sample,
-            samples_per_snps=self.valid_samples,
-            residualizers=self.residualizers,
-            snps_data=self.bim[['variant_id', 'pos']],
-            dhs_data=self.dhs_masterlist[["#chr", "start", "end", "chunk_id", "summit"]],
-            ct_data=self.reformat_samples(self.ohe_cell_types.T, mode='sum').T,
-            ct_names=self.ct_names,
-            cond_num_tr=self.cond_num_tr,
-            mode=self.mode
-        )
+        return self.setup_mapper()
 
     def preprocess(self, dhs_chunk_mask, snps_mask):
         self.load_dhs_matrix(dhs_chunk_mask)
@@ -107,7 +110,7 @@ class QTLPreprocessing:
         self.load_covariates()
         self.bed = None
 
-    def extract_variant_dhs_signal(self, variant_id, dhs_chunk_id):
+    def extract_variant_dhs_signal(self, variant_id, dhs_chunk_id, **mapper_kwargs):
         dhs_mask = self.initial_dhs_masterlist['chunk_id'] == dhs_chunk_id
 
         chrom, pos, _, _, a0 = variant_id.split('_')
@@ -139,8 +142,8 @@ class QTLPreprocessing:
         }
         if self.mode != 'gt_only':
             res_dict['CT'] = self.cell_types_list
-
-        return pd.DataFrame(res_dict)
+        mapper = self.setup_mapper(**mapper_kwargs)
+        return pd.DataFrame(res_dict), mapper
 
     def include_cell_type_info(self):
         ohe_enc = OneHotEncoder(handle_unknown='ignore', sparse_output=False)
@@ -359,8 +362,8 @@ class Residualizer:
             if self.dof <= 0 or np.linalg.cond(M) > cond_num:
                 self.Q_list = None
                 break
-            
-              # to make qr more stable
+
+            # to make qr more stable
             Q, _ = np.linalg.qr(M - M.mean(axis=0))
             self.Q_list.append(Q)
 
@@ -381,7 +384,8 @@ class QTLmapper:
     def __init__(self, phenotype_matrix, snps_per_dhs,
                  genotype_matrix, samples_per_snps, residualizers,
                  snps_data, dhs_data, mode,
-                 cond_num_tr=100, ct_data=None, ct_names=None):
+                 cond_num_tr=100, ct_data=None, ct_names=None,
+                 use_statsmodels=False, use_residualizer=True):
 
         self.phenotype_matrix = phenotype_matrix
         self.snps_per_phenotype = snps_per_dhs
@@ -396,6 +400,8 @@ class QTLmapper:
         self.mode = mode
         self.ct_data = ct_data
         self.ct_names = ct_names
+        self.use_statsmodels = use_statsmodels
+        self.use_residualizer = use_residualizer
 
         self.cond_num_tr = cond_num_tr
 
@@ -403,7 +409,7 @@ class QTLmapper:
         self.poorly_conditioned = 0
 
     @staticmethod
-    def fit_regression(X, Y, df_model, df_residuals):
+    def fit_matrix_regression(X, Y, df_model, df_residuals):
         XtX = np.matmul(np.transpose(X), X)
         XtY = np.matmul(np.transpose(X), Y)
         XtXinv = np.linalg.inv(XtX)
@@ -424,30 +430,36 @@ class QTLmapper:
 
         return [ss_model, ss_residuals, df_model, df_residuals], [coeffs[:, 0], coeffs_se[:, 0]]
 
-    def process_snp(self, snp_phenotypes, snp_genotypes, residualizer):
-        design = residualizer.transform(snp_genotypes.T).T
-        phenotype_residuals = residualizer.transform(snp_phenotypes.T).T
-        if self.mode != 'ct_only':
+    @staticmethod
+    def fit_statsmodels_regression(X, Y, df_model, df_residuals):
+        raise NotImplementedError
+        #  return None, None
 
-            try:
-                n_hom_ref, n_het, n_hom_alt = np.unique(snp_genotypes, return_counts=True)[1]
-            except Exception:
-                print(np.unique(snp_genotypes, return_counts=True))
-                raise
+    def process_snp(self, snp_phenotypes, snp_genotypes, residualizer):
+        if self.use_residualizer:
+            design = residualizer.transform(snp_genotypes.T).T
+            phenotype_residuals = residualizer.transform(snp_phenotypes.T).T
+        else:
+            design = np.concat([snp_genotypes, residualizer.C], axis=1)
+            phenotype_residuals = snp_phenotypes
+        if self.mode != 'ct_only':
+            n_hom_ref, n_het, n_hom_alt = np.unique(snp_genotypes, return_counts=True)[1]
         else:
             n_hom_ref = n_het = n_hom_alt = np.nan
         df_model = design.shape[1]
-        df_residuals = design.shape[0] - df_model - residualizer.n
+        df_residuals = design.shape[0] - df_model
+        if self.use_residualizer:
+            df_residuals -= residualizer.n
+
         if np.linalg.cond(design) >= self.cond_num_tr:
             self.poorly_conditioned += 1
-            np.save('design.npy', design)
-            np.save('residualizer_C.npy', residualizer.C)
-            np.save('phenotypes.npy', snp_phenotypes)
-            np.save('genotypes.npy', snp_genotypes)
-            exit(1)
             raise np.linalg.LinAlgError()
-        snp_stats, coeffs = self.fit_regression(design, phenotype_residuals,
-                                                df_model, df_residuals)
+        if self.use_statsmodels:
+            snp_stats, coeffs = self.fit_statsmodels_regression(design, phenotype_residuals,
+                                                                df_model, df_residuals)
+        else:
+            snp_stats, coeffs = self.fit_matrix_regression(design, phenotype_residuals,
+                                                           df_model, df_residuals)
         return [design.shape[0],  # samples tested
                 n_hom_ref, n_het, n_hom_alt,
                 *snp_stats  # coeffs, coeffs_se, ss_model, ss_residuals, df_model, df_residals
@@ -472,7 +484,6 @@ class QTLmapper:
                 used_names = self.ct_names[valid_design_cols_mask]
                 if self.mode == 'interaction':
                     snp_genotypes = snp_genotypes * ohe_cell_types  # [samples x cell_types]
-                    np.save('ohe_cell_types.npy', self.ct_data)
                 else:
                     snp_genotypes = ohe_cell_types
             else:
@@ -487,7 +498,6 @@ class QTLmapper:
                                                      snp_genotypes=snp_genotypes,
                                                      residualizer=residualizer)
             except np.linalg.LinAlgError:
-                print('')
                 self.singular_matrix_count += 1
                 continue
 
