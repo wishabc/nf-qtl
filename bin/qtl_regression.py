@@ -336,7 +336,7 @@ class QTLPreprocessing:
 
         self.residualizers = np.array([Residualizer(
             self.covariates[snp_samples_idx, :],
-            self.reformat_samples(self.ohe_cell_types.T, mode='sum').T,
+            self.reformat_samples(self.ohe_cell_types.T, mode='sum'),
             cond_num=self.cond_num_tr) for snp_samples_idx in self.valid_samples])
 
 
@@ -358,9 +358,9 @@ class Residualizer:
             if self.dof <= 0 or np.linalg.cond(C) > cond_num:
                 self.Q_list = None
                 break
-            else:
-                M, _ = remove_redundant_columns(C)  # to make qr more stable
-                Q, _ = np.linalg.qr(M - M.mean(axis=0))
+            
+            M, _ = remove_redundant_columns(C)  # to make qr more stable
+            Q, _ = np.linalg.qr(M - M.mean(axis=0))
             self.Q_list.append(Q)
 
     def transform(self, M, center=True):
