@@ -288,7 +288,6 @@ class QTLPreprocessing:
         counts = [homref, het, homalt] if return_counts else None
         return res, counts
 
-    # NEED TO THINK
     def reformat_samples(self, matrix, mode='mean'):
         if mode == 'mean' or mode == 'sum':
             ids_count = self.id2indiv.shape[0]
@@ -462,7 +461,7 @@ class QTLmapper:
             valid_samples = samples_per_snp[snp_index]
             snp_genotypes = genotypes[valid_samples][:, None]  # [samples x 1]
             residualizer = dhs_residualizers[snp_index]
-            if residualizer.Q is None:
+            if residualizer.Q_list is None:
                 self.poorly_conditioned += 1
                 continue
             if self.mode in ('interaction', 'ct_only'):
