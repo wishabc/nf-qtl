@@ -8,6 +8,7 @@ import time
 from tqdm import tqdm
 from sklearn.preprocessing import OneHotEncoder
 from pathlib import Path
+from statsmodels.api import OLS
 
 # Temporary hotfix
 bad_cell_types = [
@@ -143,7 +144,7 @@ class QTLPreprocessing:
         if self.mode != 'gt_only':
             res_dict['CT'] = self.cell_types_list
         mapper = self.setup_mapper(**mapper_kwargs)
-        return pd.DataFrame(res_dict), mapper
+        return pd.DataFrame(res_dict), mapper.map_qtl()
 
     def include_cell_type_info(self):
         ohe_enc = OneHotEncoder(handle_unknown='ignore', sparse_output=False)
@@ -432,8 +433,17 @@ class QTLmapper:
 
     @staticmethod
     def fit_statsmodels_regression(X, Y, df_model, df_residuals):
-        raise NotImplementedError
-        #  return None, None
+        model = OLS(Y, X)
+        res = model.fit()
+        ss_residuals = res.ssr 
+        ss_model = res.ess
+        if X.shape[0] - 1 != df_residuals: #  there is a residualizer
+            coeffs_se = res.bse * np.sqrt(X.shape[0] - 1) / np.sqrt(df_residuals)
+        else:
+            coeffs_se = res.bse
+        coeffs = res.params
+        return [ss_model, ss_residuals, df_model, df_residuals], [coeffs[:, 0], coeffs_se[:, 0]]
+
 
     def process_snp(self, snp_phenotypes, snp_genotypes, residualizer):
         if self.use_residualizer:
