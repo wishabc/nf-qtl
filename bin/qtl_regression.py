@@ -457,6 +457,7 @@ class QTLmapper:
                 used_names = self.ct_names[valid_design_cols_mask]
                 if self.mode == 'interaction':
                     snp_genotypes = snp_genotypes * ohe_cell_types  # [samples x cell_types]
+                    np.save('ohe_cell_types.npy', ohe_cell_types)
                 else:
                     snp_genotypes = ohe_cell_types
             else:
