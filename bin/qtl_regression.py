@@ -335,7 +335,7 @@ class QTLPreprocessing:
             self.covariates = sample_pcs
 
         self.residualizers = np.array([Residualizer(
-            self.covariates[snp_samples_idx, :],
+            # self.covariates[snp_samples_idx, :],
             self.reformat_samples(self.ohe_cell_types.T, mode='sum').T[snp_samples_idx, :],
             cond_num=self.cond_num_tr) for snp_samples_idx in self.valid_samples])
 
