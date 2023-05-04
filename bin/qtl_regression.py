@@ -99,7 +99,7 @@ class QTLPreprocessing:
         if self.valid_samples.sum() == 0:
             raise NoDataLeftError()
 
-        return self.setup_mapper(use_residualizer=True)
+        return self.setup_mapper(use_residualizer=False, use_statsmodel=True)
 
     def preprocess(self, dhs_chunk_mask, snps_mask):
         self.load_dhs_matrix(dhs_chunk_mask)
