@@ -155,7 +155,6 @@ process merge_files {
 	tabix ${out_prefix}.results.bed.gz
 
 	bgzip ${out_prefix}.coeffs.bed
-	tabix ${out_prefix}.coeffs.bed.gz
 	"""
 }
 
