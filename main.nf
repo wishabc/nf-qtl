@@ -193,7 +193,6 @@ workflow mergeFiles {
 		"/net/seq/data2/projects/sabramov/ENCODE4/caqtl-analysis/data.v4/output/chunks/*.cell_type.coefs.tsv.gz"
 	).collect(sort: true, flat: true)
 
-	res_ct.combine(cof_ct).take(1).view()
 	a = res_ct.combine(cof_ct).map(it -> tuple('cell_type', it[0], it[1]))
 
 	res_in = Channel.fromPath(
