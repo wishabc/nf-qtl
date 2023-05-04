@@ -181,8 +181,32 @@ workflow test {
 		.map(it -> file(it)).collect(sort: true, flat: true)
 
 	qtl_regression(genome_chunks, count_matrix, plink_files, modes)
-		| groupTuple()
+		| groupTuple(by: 0)
 		| merge_files
+}
+
+workflow mergeFiles {
+	res_ct = Channel.fromPath(
+		"/net/seq/data2/projects/sabramov/ENCODE4/caqtl-analysis/data.v4/output/chunks/*.cell_type.result.tsv.gz"
+	).collect(sort: true, flat: true)
+	cof_ct = Channel.fromPath(
+		"/net/seq/data2/projects/sabramov/ENCODE4/caqtl-analysis/data.v4/output/chunks/*.cell_type.coefs.tsv.gz"
+	).collect(sort: true, flat: true)
+
+	a = Channel.of("cell_type").combine(res_ct.combine(cof_ct))
+
+	res_in = Channel.fromPath(
+		"/net/seq/data2/projects/sabramov/ENCODE4/caqtl-analysis/data.v4/output/chunks/*.interaction.result.tsv.gz"
+	).collect(sort: true, flat: true)
+	cof_in = Channel.fromPath(
+		"/net/seq/data2/projects/sabramov/ENCODE4/caqtl-analysis/data.v4/output/chunks/*.interaction.coefs.tsv.gz"
+	).collect(sort: true, flat: true)
+
+	b = Channel.of("interaction").combine(res_in.combine(cof_in))
+	merge_files(a.concat(b))
+
+
+
 }
 
 workflow {
