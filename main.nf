@@ -134,6 +134,7 @@ process qtl_regression {
 process merge_files {
 	publishDir params.outdir
 	conda params.conda
+	tag "${mode}"
 
 	input:
 		tuple val(mode), path(results), path(coeffs)
