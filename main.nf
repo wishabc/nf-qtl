@@ -192,7 +192,7 @@ workflow mergeFiles {
 		"/net/seq/data2/projects/sabramov/ENCODE4/caqtl-analysis/data.v4/output/chunks/*.cell_type.coefs.tsv.gz"
 	).map(it -> tuple(it.simpleName, it))
 
-	a = res_ct.join(cof_ct).map(it -> tuple('cell_type', it[0], it[1]))
+	a = res_ct.join(cof_ct).map(it -> tuple('cell_type', it[1], it[2]))
 
 	res_in = Channel.fromPath(
 		"/net/seq/data2/projects/sabramov/ENCODE4/caqtl-analysis/data.v4/output/chunks/*.interaction.result.tsv.gz"
@@ -201,7 +201,7 @@ workflow mergeFiles {
 		"/net/seq/data2/projects/sabramov/ENCODE4/caqtl-analysis/data.v4/output/chunks/*.interaction.coefs.tsv.gz"
 	).map(it -> tuple(it.simpleName, it))
 
-	b = res_in.join(cof_in).map(it -> tuple('interaction', it[0], it[1]))
+	b = res_in.join(cof_in).map(it -> tuple('interaction', it[1], it[2]))
 	merge_files(a.concat(b).groupTuple())
 
 
