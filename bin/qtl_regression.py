@@ -430,8 +430,6 @@ class QTLmapper:
         ms_residuals = ss_residuals / df_residuals
         if np.any(XtXinv[np.eye(X.shape[1], dtype=bool)][..., None] < 0):
             print('Negative coefs se')
-            np.save('X.npy', X)
-            np.save('Y.npy', Y)
             raise np.linalg.LinAlgError()
         # coeffs standard error
         coeffs_se = np.sqrt(XtXinv[np.eye(X.shape[1], dtype=bool)][..., None] * ms_residuals).astype(float)
@@ -441,15 +439,17 @@ class QTLmapper:
     @staticmethod
     def fit_statsmodels_regression(X, Y, df_model, df_residuals):
         model = OLS(Y, X, hasconst=False)
+        model.df_model = df_model
+        model.df_resid = df_residuals
         res = model.fit()
         print(res.summary())
         ss_residuals = res.ssr 
         ss_model = res.ess
-        if df_residuals + df_model != X.shape[0]: #  there is a residualizer
-            print('ThIS IS RESIDUALIZER!!')
-            coeffs_se = res.bse * np.sqrt(X.shape[0] - 1) / np.sqrt(df_residuals)
-        else:
-            coeffs_se = res.bse
+        # if df_residuals + df_model != X.shape[0]: #  there is a residualizer
+        #     print('ThIS IS RESIDUALIZER!!')
+        #     coeffs_se = res.bse * np.sqrt(X.shape[0] - 1) / np.sqrt(df_residuals)
+        # else:
+        coeffs_se = res.bse
         coeffs = res.params
         return [ss_model, ss_residuals, df_model, df_residuals], [coeffs, coeffs_se]
 
@@ -495,7 +495,6 @@ class QTLmapper:
             snp_genotypes = genotypes[valid_samples][:, None]  # [samples x 1]
             residualizer = dhs_residualizers[snp_index]
             if residualizer.Q_list is None:
-                print(residualizer.Q_list)
                 self.poorly_conditioned += 1
                 continue
             if self.mode in ('interaction', 'ct_only'):
