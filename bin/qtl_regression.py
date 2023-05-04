@@ -41,7 +41,7 @@ def remove_redundant_columns(matrix):
 
 
 class QTLPreprocessing:
-    window = 500_000
+    window = 100_000
     allele_frac = 0.05
 
     def __init__(self, dhs_matrix_path, dhs_masterlist_path, samples_order,
@@ -99,7 +99,7 @@ class QTLPreprocessing:
         if self.valid_samples.sum() == 0:
             raise NoDataLeftError()
 
-        return self.setup_mapper()
+        return self.setup_mapper(use_residualizer=True)
 
     def preprocess(self, dhs_chunk_mask, snps_mask):
         self.load_dhs_matrix(dhs_chunk_mask)
@@ -442,7 +442,6 @@ class QTLmapper:
         model.df_model = df_model
         model.df_resid = df_residuals
         res = model.fit()
-        print(res.summary())
         ss_residuals = res.ssr 
         ss_model = res.ess
         # if df_residuals + df_model != X.shape[0]: #  there is a residualizer
