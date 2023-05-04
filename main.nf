@@ -187,22 +187,22 @@ workflow test {
 workflow mergeFiles {
 	res_ct = Channel.fromPath(
 		"/net/seq/data2/projects/sabramov/ENCODE4/caqtl-analysis/data.v4/output/chunks/*.cell_type.result.tsv.gz"
-	).collect(sort: true, flat: true)
+	).map(it -> tuple(it.simpleName, it))
 	cof_ct = Channel.fromPath(
 		"/net/seq/data2/projects/sabramov/ENCODE4/caqtl-analysis/data.v4/output/chunks/*.cell_type.coefs.tsv.gz"
-	).collect(sort: true, flat: true)
+	).map(it -> tuple(it.simpleName, it))
 
-	a = res_ct.combine(cof_ct).map(it -> tuple('cell_type', it[0], it[1]))
+	a = res_ct.join(cof_ct).map(it -> tuple('cell_type', it[0], it[1]))
 
 	res_in = Channel.fromPath(
 		"/net/seq/data2/projects/sabramov/ENCODE4/caqtl-analysis/data.v4/output/chunks/*.interaction.result.tsv.gz"
-	).collect(sort: true, flat: true)
+	).map(it -> tuple(it.simpleName, it))
 	cof_in = Channel.fromPath(
 		"/net/seq/data2/projects/sabramov/ENCODE4/caqtl-analysis/data.v4/output/chunks/*.interaction.coefs.tsv.gz"
-	).collect(sort: true, flat: true)
+	).map(it -> tuple(it.simpleName, it))
 
-	b = res_in.combine(cof_in).map(it -> tuple('interaction', it[0], it[1]))
-	merge_files(a.concat(b))
+	b = res_in.join(cof_in).map(it -> tuple('interaction', it[0], it[1]))
+	merge_files(a.concat(b).groupTuple())
 
 
 
