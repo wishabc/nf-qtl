@@ -128,10 +128,6 @@ process qtl_regression {
 		--mode ${mode} \
 		${use_resiudalizer} \
 		--include_ct
-		
-		
-		##${additional_covs} 
-		
 	"""
 }
 
