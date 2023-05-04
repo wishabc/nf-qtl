@@ -424,6 +424,8 @@ class QTLmapper:
 
         # sum of squares
         ss_residuals = np.square(Y - Y_predicted).sum()
+
+        # MAYBE CHANGE TO 0
         ss_model = np.square(Y_predicted - Y.mean(0, keepdims=True)).sum()
 
         # mean sum of squares
