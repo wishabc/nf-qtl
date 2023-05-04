@@ -49,7 +49,7 @@ class QTLPreprocessing:
                  valid_dhs=None, mode='gt_only', cond_num_tr=100):
         self.dhs_matrix_path = dhs_matrix_path
         self.mode = mode
-        self.min_individuals_per_genotype = 2
+        self.min_individuals_per_genotype = 5
         self.min_unique_genotypes = 3
         self.n_cell_types = 2
         self.plink_prefix = plink_prefix
@@ -99,7 +99,7 @@ class QTLPreprocessing:
         if self.valid_samples.sum() == 0:
             raise NoDataLeftError()
 
-        return self.setup_mapper(use_residualizer=False, use_statsmodels=True)
+        return self.setup_mapper(use_residualizer=True, use_statsmodels=False)
 
     def preprocess(self, dhs_chunk_mask, snps_mask):
         self.load_dhs_matrix(dhs_chunk_mask)
