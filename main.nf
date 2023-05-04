@@ -133,7 +133,6 @@ process qtl_regression {
 process merge_files {
 	publishDir params.outdir
 	conda params.conda
-	scratch true
 
 	input:
 		tuple val(mode), path(results), path(coeffs)
