@@ -438,7 +438,7 @@ class QTLmapper:
 
     @staticmethod
     def fit_statsmodels_regression(X, Y, df_model, df_residuals):
-        model = OLS(Y, X)
+        model = OLS(Y, X, hasconst=False)
         res = model.fit()
         print(res.summary())
         ss_residuals = res.ssr 
