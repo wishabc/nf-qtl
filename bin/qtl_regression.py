@@ -10,7 +10,7 @@ from sklearn.preprocessing import OneHotEncoder
 from pathlib import Path
 from statsmodels.api import OLS
 
-# Temporary hotfix
+# --------- Temporary hotfix --------
 bad_cell_types = [
     'K562', 'Lung cancer cell lines', 'Breast cancer cell lines',
     'Hematopoietic cancer cell lines', 'Colon cancer cell lines',
@@ -27,7 +27,7 @@ bad_cell_types = [
     'HS-5', 'TF-1.CN5a.1', 'HT-29', 'L1-S8', 'MCF-7',
     'NCI-H226', 'PC-3', 'HS-27A', 'WERI-Rb-1'
 ]
-
+# --------------------------------
 
 def unpack_region(s):
     chrom, coords = s.split(":")
@@ -215,7 +215,7 @@ class QTLPreprocessing:
             on=['CT', 'indiv_id', 'index']
         ).set_index('ag_id').loc[self.samples_order, 'cti'].to_numpy()
 
-        # --------- Temporary fix --------
+        # --------- Temporary hotfix --------
         bad_samples_mask = self.metadata['CT'].isin(bad_cell_types).to_numpy()
         bad_indivs = self.metadata[bad_samples_mask]['index'].unique()
         self.bed_dask[:, bad_indivs] = -1
