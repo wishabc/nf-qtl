@@ -51,7 +51,7 @@ class QTLPreprocessing:
         self.mode = mode
         self.min_individuals_per_genotype = 5
         self.min_unique_genotypes = 3
-        self.n_cell_types = 1
+        self.n_cell_types = 2
         self.plink_prefix = plink_prefix
         self.cond_num_tr = cond_num_tr
         self.valid_dhs = valid_dhs
