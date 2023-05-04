@@ -677,7 +677,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    if args.mode == 'Null' and not args.use_resiudalizer:
+    if args.mode == 'Null' and args.use_resiudalizer:
         raise AssertionError
     if args.mode == 'G_by_C' and not args.include_ct:
         raise AssertionError
