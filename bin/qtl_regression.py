@@ -45,8 +45,8 @@ class QTLPreprocessing:
     allele_frac = 0.05
 
     def __init__(self, dhs_matrix_path, dhs_masterlist_path, samples_order,
-                 plink_prefix, samples_metadata, additional_covariates=None,
-                 valid_dhs=None, mode='gt_only', cond_num_tr=100):
+                 plink_prefix, samples_metadata, covars_path=None,
+                 valid_dhs=None, mode='G', include_ct=False, cond_num_tr=100):
         self.dhs_matrix_path = dhs_matrix_path
         self.mode = mode
         self.min_individuals_per_genotype = 5
@@ -56,14 +56,15 @@ class QTLPreprocessing:
         self.cond_num_tr = cond_num_tr
         self.valid_dhs = valid_dhs
         # path to DataFrame with columns ag_id PC1 PC2 ...
-        self.additional_covariates = additional_covariates
+        self.covars_path = covars_path
+        self.include_ct = include_ct
 
         self.initial_dhs_masterlist = self.dhs_masterlist = self.indiv_names = self.samples_order = None
         self.initial_bim = self.bim = self.fam = self.bed = self.bed_by_sample = self.bed_dask = None
         self.dhs_matrix = None
         self.snps_per_dhs = self.cell_types_list = self.ct_names = self.good_indivs_mask = None
         self.metadata = self.ordered_meta = self.id2indiv = self.sample2id = self.ohe_cell_types = None
-        self.covariates = self.valid_samples = self.residualizers = None
+        self.valid_samples = self.residualizers = None
 
         self.read_dhs_matrix_meta(dhs_masterlist_path, samples_order)
         self.load_snp_data()
@@ -82,10 +83,11 @@ class QTLPreprocessing:
             ct_data=self.reformat_samples(self.ohe_cell_types.T, mode='sum').T,
             ct_names=self.ct_names,
             cond_num_tr=self.cond_num_tr,
+            include_ct=self.include_ct,
             **kwargs
         )
 
-    def transform(self, genomic_region):
+    def transform(self, genomic_region, use_residualizer=False):
         chrom, start, end = unpack_region(genomic_region)
 
         # Change summit to start/end if needed
@@ -99,12 +101,12 @@ class QTLPreprocessing:
         if self.valid_samples.sum() == 0:
             raise NoDataLeftError()
 
-        return self.setup_mapper(use_residualizer=True, use_statsmodels=False)
+        return self.setup_mapper(use_residualizer=use_residualizer, use_statsmodels=False)
 
     def preprocess(self, dhs_chunk_mask, snps_mask):
         self.load_dhs_matrix(dhs_chunk_mask)
         self.load_snp_matrix(snps_mask)
-        if self.mode != 'gt_only':
+        if self.include_ct:
             self.include_cell_type_info()  # [SNPs x samples]
 
         self.filter_invalid_test_pairs()
@@ -124,7 +126,6 @@ class QTLPreprocessing:
         valid_samples = self.valid_samples.squeeze()
         residualizer = self.residualizers[0]
 
-        # FIXME for multiple variants case
         g_res = np.full(g.shape[0], np.nan)
         g_res[valid_samples] = residualizer.transform(
             g[valid_samples][None, :]
@@ -141,7 +142,7 @@ class QTLPreprocessing:
             'G_res': g_res,
             'indiv_index': self.indiv_names
         }
-        if self.mode != 'gt_only':
+        if self.include_ct:
             res_dict['CT'] = self.cell_types_list
         mapper = self.setup_mapper(**mapper_kwargs)
         return pd.DataFrame(res_dict), mapper.map_qtl()
@@ -230,7 +231,7 @@ class QTLPreprocessing:
         self.dhs_masterlist = self.dhs_masterlist.iloc[~invalid_phens, :].reset_index(drop=True)
         before_n = (self.bed_by_sample != -1).sum()
         self.valid_samples = (self.bed_by_sample != -1)
-        if self.mode != 'gt_only':
+        if self.include_ct:
             # Filter out cell-types with less than 3 distinct genotypes
             self.valid_samples *= self.find_valid_samples_by_cell_type()  # [SNPs x samples]
 
@@ -322,24 +323,36 @@ class QTLPreprocessing:
         return res.astype(bool)  # [SNP x sample]
 
     def load_covariates(self):
-        if self.additional_covariates is not None:
+        covars = []
+        if self.covars_path is not None:
             additional_covs = pd.read_table(
-                self.additional_covariates
+                self.covars_path
             ).set_index('ag_id').loc[self.samples_order]
 
-            self.covariates = self.reformat_samples(additional_covs.to_numpy().T, mode='mean').T
+            covars.append(self.reformat_samples(additional_covs.to_numpy().T, mode='mean').T)
             # self.covariates = np.concatenate(
             # [sample_pcs, additional_covs.to_numpy()], axis=1)  # [sample x covariate]
-        else:
-            gt_covariates = pd.read_table(f'{self.plink_prefix}.eigenvec')
-            assert gt_covariates['IID'].tolist() == self.fam['indiv_id'].tolist()
-            sample_pcs = gt_covariates[self.good_indivs_mask].loc[self.id2indiv].iloc[:, 2:].to_numpy()
-            self.covariates = sample_pcs
+        # else:
+        #     gt_covariates = pd.read_table(f'{self.plink_prefix}.eigenvec')
+        #     assert gt_covariates['IID'].tolist() == self.fam['indiv_id'].tolist()
+        #     sample_pcs = gt_covariates[self.good_indivs_mask].loc[self.id2indiv].iloc[:, 2:].to_numpy()
+        #     self.covariates = sample_pcs
+        if self.include_ct:
+            covars.append(self.reformat_samples(self.ohe_cell_types.T, mode='sum').T)
 
-        self.residualizers = np.array([Residualizer(
-            # self.covariates[snp_samples_idx, :],
-            self.reformat_samples(self.ohe_cell_types.T, mode='sum').T[snp_samples_idx, :],
-            cond_num=self.cond_num_tr) for snp_samples_idx in self.valid_samples])
+        if len(covars) > 0:
+            covars = np.concatenate(covars)
+        else:
+            covars = None
+        self.residualizers = np.array(
+            [
+                Residualizer(
+                    None if covars is None else covars[snp_samples_idx, :],
+                    cond_num=self.cond_num_tr
+                )
+                for snp_samples_idx in self.valid_samples
+            ]
+        )
 
 
 class NoDataLeftError(Exception):
@@ -349,12 +362,16 @@ class NoDataLeftError(Exception):
 class Residualizer:
     def __init__(self, *C_list, cond_num=100):
         # center and orthogonalize
-        if len(C_list) == 0:
-            raise ValueError
-        self.n = 0
-        self.dof = C_list[0].shape[0]
         self.Q_list = []
         self.M_list = []
+        self.n = 0
+        if len(C_list) == 0:
+            raise ValueError
+        if C_list[0] is None:
+            self.Q_list = None
+            return
+
+        self.dof = C_list[0].shape[0]
         for C in C_list:
             M, _ = remove_redundant_columns(C)
             self.M_list.append(M)
@@ -386,7 +403,7 @@ class QTLmapper:
                  genotype_matrix, samples_per_snps, residualizers,
                  snps_data, dhs_data, mode,
                  cond_num_tr=100, ct_data=None, ct_names=None,
-                 use_statsmodels=False, use_residualizer=True):
+                 use_statsmodels=False, use_residualizer=True, include_ct=False):
 
         self.phenotype_matrix = phenotype_matrix
         self.snps_per_phenotype = snps_per_dhs
@@ -397,6 +414,7 @@ class QTLmapper:
 
         self.snps_data = snps_data
         self.dhs_data = dhs_data
+        self.include_ct = include_ct
 
         self.mode = mode
         self.ct_data = ct_data
@@ -442,7 +460,7 @@ class QTLmapper:
         model.df_model = df_model
         model.df_resid = df_residuals
         res = model.fit()
-        ss_residuals = res.ssr 
+        ss_residuals = res.ssr
         ss_model = res.ess
         # if df_residuals + df_model != X.shape[0]: #  there is a residualizer
         #     print('ThIS IS RESIDUALIZER!!')
@@ -452,15 +470,17 @@ class QTLmapper:
         coeffs = res.params
         return [ss_model, ss_residuals, df_model, df_residuals], [coeffs, coeffs_se]
 
-
     def process_snp(self, snp_phenotypes, snp_genotypes, residualizer):
         if self.use_residualizer:
             design = residualizer.transform(snp_genotypes.T).T
             phenotype_residuals = residualizer.transform(snp_phenotypes.T).T
         else:
-            design = np.concatenate([snp_genotypes, *residualizer.M_list], axis=1)
+            if snp_genotypes is not None:
+                design = np.concatenate([snp_genotypes, *residualizer.M_list], axis=1)
+            else:
+                design = np.concatenate(residualizer.M_list, axis=1)
             phenotype_residuals = snp_phenotypes
-        if self.mode != 'ct_only':
+        if self.mode != 'Null':
             n_hom_ref, n_het, n_hom_alt = np.unique(snp_genotypes, return_counts=True)[1]
         else:
             n_hom_ref = n_het = n_hom_alt = np.nan
@@ -484,6 +504,10 @@ class QTLmapper:
                 *snp_stats  # coeffs, coeffs_se, ss_model, ss_residuals, df_model, df_residals
                 ], coeffs
 
+    def find_valid_ct_names(self, valid_samples):
+        ohe_cell_types, valid_design_cols_mask = remove_redundant_columns(self.ct_data[valid_samples, :])
+        return ohe_cell_types, self.ct_names[valid_design_cols_mask]
+
     def process_dhs(self, phenotype_matrix, genotype_matrix, samples_per_snp,
                     dhs_residualizers, snps_data, dhs_data):
         res = []
@@ -491,28 +515,33 @@ class QTLmapper:
         dhs_data_as_list = dhs_data.to_list()
         for snp_index, genotypes in enumerate(genotype_matrix):
             valid_samples = samples_per_snp[snp_index]
-            snp_genotypes = genotypes[valid_samples][:, None]  # [samples x 1]
             residualizer = dhs_residualizers[snp_index]
-            if residualizer.Q_list is None:
+            if residualizer.Q_list is None and self.use_residualizer:
                 self.poorly_conditioned += 1
-                continue
-            if self.mode in ('interaction', 'ct_only'):
-                # calculate interaction
-                ohe_cell_types, valid_design_cols_mask = remove_redundant_columns(self.ct_data[valid_samples, :])
-                used_names = self.ct_names[valid_design_cols_mask]
-                if self.mode == 'interaction':
-                    snp_genotypes = snp_genotypes * ohe_cell_types  # [samples x cell_types]
-                else:
-                    snp_genotypes = ohe_cell_types
-            else:
-                used_names = np.full(1, np.nan, dtype=str)
-            if not self.use_residualizer:
-                residualizer_vars = np.full(residualizer.n, 'residualizer', dtype=str)
-                used_names = np.concatenate([used_names, residualizer_vars])
-            if snp_genotypes.shape[0] - snp_genotypes.shape[1] - residualizer.n < 1:
                 continue
 
             snp_phenotypes = phenotype_matrix[valid_samples][:, None]  # [samples x 1]
+            coef_names_array = []
+            snp_genotypes = None
+
+            if self.mode in ('G|C', 'G'):
+                snp_genotypes = genotypes[valid_samples][:, None]  # [samples x 1]
+                used_names = np.full(1, 'G', dtype='object')
+                if self.mode == 'G|C':
+                    # calculate interaction
+                    ohe_cell_types, used_names = self.find_valid_ct_names(valid_samples)
+                    snp_genotypes = snp_genotypes * ohe_cell_types  # [samples x cell_types]
+                coef_names_array.append(used_names)
+
+            if not self.use_residualizer and residualizer.n > 0:
+                residualizer_vars = np.full(residualizer.n, 'residualizer', dtype='object')
+                if self.include_ct:
+                    _, used_names = self.find_valid_ct_names(valid_samples)
+                    residualizer_vars[-len(used_names):] += '|' + used_names
+                coef_names_array.append(residualizer_vars)
+
+            used_names = np.concatenate(coef_names_array)
+
             try:
                 snp_stats, coeffs = self.process_snp(snp_phenotypes=snp_phenotypes,
                                                      snp_genotypes=snp_genotypes,
@@ -585,7 +614,7 @@ class QTLmapper:
 
 
 def main(chunk_id, masterlist_path, non_nan_mask_path, phenotype_matrix_path,
-         samples_order_path, plink_prefix, metadata_path, additional_covariates, mode):
+         samples_order_path, plink_prefix, metadata_path, covars, mode, include_ct, use_residualizer):
     t = time.perf_counter()
     print('Processing started')
     # ---- Read data for specific region only -----
@@ -596,12 +625,16 @@ def main(chunk_id, masterlist_path, non_nan_mask_path, phenotype_matrix_path,
         plink_prefix=plink_prefix,
         samples_metadata=metadata_path,
         valid_dhs=non_nan_mask_path,
-        additional_covariates=additional_covariates,
+        covars_path=covars,
         cond_num_tr=100,
+        include_ct=include_ct,
         mode=mode
     )
     try:
-        qtl_mapper = processing.transform(genomic_region=chunk_id)
+        qtl_mapper = processing.transform(
+            genomic_region=chunk_id,
+            use_residualizer=use_residualizer
+        )
         print(f"Preprocessing finished in {time.perf_counter() - t}s")
         res, coefs = qtl_mapper.map_qtl()
     except NoDataLeftError:
@@ -627,14 +660,27 @@ if __name__ == '__main__':
                         help='Path to file with columns identificators (sample_ids) of phenotype matrix')
     parser.add_argument('plink_prefix', help='Plink prefix to read file with plink_pandas package')
     parser.add_argument('outpath', help='Path to fasta file with SNPs coded as IUPAC symbols')
-    parser.add_argument('--additional_covariates', help='Path to tsv file with additional covariates.'
-                                                        'Should have the following columns: ag_id, PC1, PC2, ...',
+    parser.add_argument('--covariates_path', help='Path to tsv file with additional covariates.'
+                                                  'Should have the following columns: ag_id, PC1, PC2, ...',
                         default=None)
-    parser.add_argument('--mode', help='Specify to choose type of caQTL analysis. gt_only, cell_type or interaction',
-                        default='gt_only', const='gt_only', nargs='?',
-                        choices=['cell_type', 'interaction', 'ct_only', 'gt_only'])
+    parser.add_argument('--mode', help='Specify to choose type of caQTL analysis: G, G|C or Null. '
+                                       'Provide Null to fit the model with only covariates.'
+                                       '(mode=Null does not work when --use_residualizer=True).',
+                        default='G', const='G', nargs='?',
+                        choices=['G', 'G|C', 'Null'])
+
+    parser.add_argument('--include_ct', help='Specify to filter by genotypes counts in each cell type',
+                        default=False, action="store_true")
+
+    parser.add_argument('--use_resiudalizer', help='Specify to use residualizer to exclude effect of covariates',
+                        default=False, action="store_true")
 
     args = parser.parse_args()
+
+    if args.mode == 'Null' and not args.use_resiudalizer:
+        raise AssertionError
+    if args.mode == 'G|C' and not args.include_ct:
+        raise AssertionError
 
     result = main(
         chunk_id=args.chunk_id,
@@ -645,7 +691,9 @@ if __name__ == '__main__':
         plink_prefix=args.plink_prefix,
         mode=args.mode,
         metadata_path=args.metadata,
-        additional_covariates=args.additional_covariates
+        covars=args.covariates_path,
+        include_ct=args.include_ct,
+        use_residualizer=args.use_resiudalizer
     )
     if result is None:
         print(f'No SNPs can be tested for {args.chunk_id}, exiting')

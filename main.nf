@@ -113,7 +113,8 @@ process qtl_regression {
 	script:
 	plink_prefix = "${plink_files[0].simpleName}" // Assumes that prefix of all the files is the same and doesn't contain .
 	prefix = "${genome_chunk}.qtl_results.${mode}"
-	additional_covs = params.additional_covs ? "--additional_covariates ${params.additional_covs}" : ""
+	use_resiudalizer = params.use_resiudalizer ? '--use_resiudalizer' : ''
+	//additional_covs = params.additional_covs ? "--additional_covariates ${params.additional_covs}" : ""
 	"""
 	python3 $moduleDir/bin/qtl_regression.py \
 		${genome_chunk} \
@@ -125,7 +126,11 @@ process qtl_regression {
 		${plink_prefix} \
 		${prefix} \
 		--mode ${mode} \
-		${additional_covs}
+		${use_resiudalizer} \
+		--include_ct
+		
+		
+		##${additional_covs} 
 		
 	"""
 }
