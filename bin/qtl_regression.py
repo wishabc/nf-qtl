@@ -524,10 +524,10 @@ class QTLmapper:
             coef_names_array = []
             snp_genotypes = None
 
-            if self.mode in ('G|C', 'G'):
+            if self.mode in ('G_by_C', 'G'):
                 snp_genotypes = genotypes[valid_samples][:, None]  # [samples x 1]
                 used_names = np.full(1, 'G', dtype='object')
-                if self.mode == 'G|C':
+                if self.mode == 'G_by_C':
                     # calculate interaction
                     ohe_cell_types, used_names = self.find_valid_ct_names(valid_samples)
                     snp_genotypes = snp_genotypes * ohe_cell_types  # [samples x cell_types]
@@ -663,11 +663,11 @@ if __name__ == '__main__':
     parser.add_argument('--covariates_path', help='Path to tsv file with additional covariates.'
                                                   'Should have the following columns: ag_id, PC1, PC2, ...',
                         default=None)
-    parser.add_argument('--mode', help='Specify to choose type of caQTL analysis: G, G|C or Null. '
+    parser.add_argument('--mode', help='Specify to choose type of caQTL analysis: G, G_by_C or Null. '
                                        'Provide Null to fit the model with only covariates.'
                                        '(mode=Null does not work when --use_residualizer=True).',
                         default='G', const='G', nargs='?',
-                        choices=['G', 'G|C', 'Null'])
+                        choices=['G', 'G_by_C', 'Null'])
 
     parser.add_argument('--include_ct', help='Specify to filter by genotypes counts in each cell type',
                         default=False, action="store_true")
@@ -679,7 +679,7 @@ if __name__ == '__main__':
 
     if args.mode == 'Null' and not args.use_resiudalizer:
         raise AssertionError
-    if args.mode == 'G|C' and not args.include_ct:
+    if args.mode == 'G_by_C' and not args.include_ct:
         raise AssertionError
 
     result = main(
