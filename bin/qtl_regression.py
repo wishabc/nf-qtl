@@ -214,8 +214,6 @@ class QTLPreprocessing:
             on=['CT', 'indiv_id', 'index']
         ).set_index('ag_id').loc[self.samples_order, 'cti'].to_numpy()
 
-        self.metadata.to_csv('metadata_sorted.tsv', sep='\t')
-        cell_type_by_indiv.to_csv('cell_type_by_indiv.tsv', sep='\t')
         # --------- Temporary fix --------
         bad_samples_mask = self.metadata['CT'].isin(bad_cell_types).to_numpy()
         bad_indivs = self.metadata[bad_samples_mask]['index'].unique()
