@@ -374,7 +374,7 @@ class Residualizer:
         """Residualize rows of M wrt columns of C"""
         if self.Q_list is None:
             return None
-        M0 = M - M.mean(1, keepdims=True)
+        M0 = (M - M.mean(1, keepdims=True)).astype(float)
         for Q in self.Q_list:
             if center:
                 M0 = M0 - np.matmul(np.matmul(M0, Q), Q.T)
@@ -413,6 +413,8 @@ class QTLmapper:
 
     @staticmethod
     def fit_matrix_regression(X, Y, df_model, df_residuals):
+        X = X.astype(float)
+        Y = Y.astype(float)
         XtX = np.matmul(np.transpose(X), X)
         XtY = np.matmul(np.transpose(X), Y)
         XtXinv = np.linalg.inv(XtX)
