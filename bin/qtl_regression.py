@@ -360,6 +360,7 @@ class QTLPreprocessing:
                     self.covars_path
                 ).set_index('ag_id').loc[self.samples_order].to_numpy().T
 
+            print(additional_covs.shape)
             covars.append(self.reformat_samples(
                 additional_covs, mode='mean').T)
 
