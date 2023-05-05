@@ -358,13 +358,14 @@ class QTLPreprocessing:
             else:    
                 additional_covs = pd.read_table(
                     self.covars_path
-                ).set_index('ag_id').loc[self.samples_order].to_numpy().T
+                ).set_index('ag_id').loc[self.samples_order].to_numpy()
 
             print(additional_covs.shape)
             covars.append(self.reformat_samples(
-                additional_covs, mode='mean').T)
+                additional_covs.T, mode='mean').T)
 
         if len(covars) > 0:
+            print([x.shape for x in covars])
             covars = np.concatenate(covars)
         else:
             covars = None
