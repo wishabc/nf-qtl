@@ -45,11 +45,12 @@ def add_bonf(array):
 
 def add_bonf_correction(df, suf='', overall=True):
     if overall:
-        return ad
+        val = add_bonf(df[f'log10_f_pval{suf}'].to_numpy())
     else:
-        df[f'log10_qval{suf}'] = df.groupby('chunk_id')[f'log10_f_pval{suf}'].apply(
+        val = df.groupby('chunk_id')[f'log10_f_pval{suf}'].apply(
             lambda x: add_bonf(x.to_numpy())
             )
+    df[f'log10_qval{suf}'] = val
     return df
 
 
