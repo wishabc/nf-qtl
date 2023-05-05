@@ -40,6 +40,16 @@ def remove_redundant_columns(matrix):
     return matrix[:, cols_mask], cols_mask
 
 
+def add_bonf_correction(df, suf='', overall=True):
+    if overall:
+        df[f'log10_qvalue{suf}'] = np.maximum(df[f'log10_f_pval{suf}']  - np.log10(len(df.index)), 0)
+    else:
+        df = df.groupby('chunk_id').apply(
+            lambda x: add_bonf_correction(x, suf=suf, overall=True)
+            )
+    return df
+
+
 class QTLPreprocessing:
     window = 100_000
     allele_frac = 0.05
@@ -580,7 +590,8 @@ class QTLmapper:
             df['f_stat'].to_numpy(),
             dfd=df['df_residuals'].to_numpy(),
             dfn=df['df_model'].to_numpy()) / np.log(10)
-        return df
+        
+        return add_bonf_correction(df, overall=False).rename(columns={'log10_qvalue': 'log10_qvalue_window'})
 
     def map_qtl(self):
         stats_res = []
