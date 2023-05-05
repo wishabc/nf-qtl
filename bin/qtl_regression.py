@@ -349,9 +349,12 @@ class QTLPreprocessing:
             covars.append(self.reformat_samples(self.ohe_cell_types.T, mode='sum').T)
 
         if self.covars_path is not None:
-            additional_covs = pd.read_table(
-                self.covars_path
-            ).set_index('ag_id').loc[self.samples_order]
+            if self.covars_path.endswith('.npy'):
+                additional_covs = np.load(self.covars_path)
+            else:    
+                additional_covs = pd.read_table(
+                    self.covars_path
+                ).set_index('ag_id').loc[self.samples_order]
 
             covars.append(self.reformat_samples(
                 additional_covs.to_numpy().T, mode='mean').T)
