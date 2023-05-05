@@ -360,13 +360,11 @@ class QTLPreprocessing:
                     self.covars_path
                 ).set_index('ag_id').loc[self.samples_order].to_numpy()
 
-            print(additional_covs.shape)
             covars.append(self.reformat_samples(
                 additional_covs.T, mode='mean').T)
 
         if len(covars) > 0:
-            print([x.shape for x in covars])
-            covars = np.concatenate(covars)
+            covars = np.concatenate(covars, axis=1)
         else:
             covars = None
         self.residualizers = np.array(
