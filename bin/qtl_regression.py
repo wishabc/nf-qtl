@@ -85,7 +85,7 @@ class QTLPreprocessing:
             ct_names=self.ct_names,
             cond_num_tr=self.cond_num_tr,
             include_ct=self.include_ct,
-            quiet=self.quiet
+            quiet=self.quiet,
             **kwargs
         )
 
