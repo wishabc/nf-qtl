@@ -354,10 +354,10 @@ class QTLPreprocessing:
             else:    
                 additional_covs = pd.read_table(
                     self.covars_path
-                ).set_index('ag_id').loc[self.samples_order]
+                ).set_index('ag_id').loc[self.samples_order].to_numpy()
 
             covars.append(self.reformat_samples(
-                additional_covs.to_numpy().T, mode='mean').T)
+                additional_covs.T, mode='mean').T)
 
         if len(covars) > 0:
             covars = np.concatenate(covars)
@@ -679,7 +679,7 @@ if __name__ == '__main__':
                         help='Path to file with columns identificators (sample_ids) of phenotype matrix')
     parser.add_argument('plink_prefix', help='Plink prefix to read file with plink_pandas package')
     parser.add_argument('outpath', help='Path to fasta file with SNPs coded as IUPAC symbols')
-    parser.add_argument('--covariates', help='Path to tsv file with additional covariates.'
+    parser.add_argument('--covariates', help='Path to tsv file with covariates.'
                                                   'Should have the following columns: ag_id, PC1, PC2, ...',
                         default=None)
     parser.add_argument('--mode', help='Specify to choose type of caQTL analysis: G, G_by_C or Null. '
