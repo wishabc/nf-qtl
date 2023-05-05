@@ -58,18 +58,19 @@ class QTLPreprocessing:
                  plink_prefix, samples_metadata, covars_path=None,
                  valid_dhs=None, mode='G', include_ct=False, cond_num_tr=100):
         self.dhs_matrix_path = dhs_matrix_path
+        self.plink_prefix = plink_prefix
+        self.valid_dhs = valid_dhs
+        # path to DataFrame with columns ag_id PC1 PC2 ...
+        self.covars_path = covars_path
+
+        self.cond_num_tr = cond_num_tr
         self.mode = mode
         self.min_individuals_per_genotype = 5
         self.min_unique_genotypes = 3
         self.n_cell_types = 2
-        self.plink_prefix = plink_prefix
-        self.cond_num_tr = cond_num_tr
-        self.valid_dhs = valid_dhs
         self.quiet = False
-        # path to DataFrame with columns ag_id PC1 PC2 ...
-        self.covars_path = covars_path
         self.include_ct = include_ct
-
+       
         self.initial_dhs_masterlist = self.dhs_masterlist = self.indiv_names = self.samples_order = None
         self.initial_bim = self.bim = self.fam = self.bed = self.bed_by_sample = self.bed_dask = None
         self.dhs_matrix = None
@@ -337,12 +338,6 @@ class QTLPreprocessing:
 
     def load_covariates(self):
         covars = []
-        if self.covars_path is not None:
-            additional_covs = pd.read_table(
-                self.covars_path
-            ).set_index('ag_id').loc[self.samples_order]
-
-            covars.append(self.reformat_samples(additional_covs.to_numpy().T, mode='mean').T)
             # self.covariates = np.concatenate(
             # [sample_pcs, additional_covs.to_numpy()], axis=1)  # [sample x covariate]
         # else:
@@ -352,6 +347,14 @@ class QTLPreprocessing:
         #     self.covariates = sample_pcs
         if self.include_ct:
             covars.append(self.reformat_samples(self.ohe_cell_types.T, mode='sum').T)
+
+        if self.covars_path is not None:
+            additional_covs = pd.read_table(
+                self.covars_path
+            ).set_index('ag_id').loc[self.samples_order]
+
+            covars.append(self.reformat_samples(
+                additional_covs.to_numpy().T, mode='mean').T)
 
         if len(covars) > 0:
             covars = np.concatenate(covars)
@@ -422,21 +425,17 @@ class QTLmapper:
         self.snps_per_phenotype = snps_per_dhs
         self.genotype_matrix = genotype_matrix
         self.samples_per_snps = samples_per_snps
-
-        self.residualizers = residualizers
-
-        self.snps_data = snps_data
-        self.dhs_data = dhs_data
-        self.include_ct = include_ct
-
-        self.quiet = quiet
-
-        self.mode = mode
         self.ct_data = ct_data
         self.ct_names = ct_names
+        self.residualizers = residualizers
+        self.snps_data = snps_data
+        self.dhs_data = dhs_data
+
+        self.include_ct = include_ct
+        self.quiet = quiet
+        self.mode = mode
         self.use_statsmodels = use_statsmodels
         self.use_residualizer = use_residualizer
-
         self.cond_num_tr = cond_num_tr
 
         self.singular_matrix_count = 0
@@ -552,7 +551,7 @@ class QTLmapper:
                 residualizer_vars = np.full(residualizer.n, 'residualizer', dtype='object')
                 if self.include_ct:
                     _, used_names = self.find_valid_ct_names(valid_samples)
-                    residualizer_vars[-len(used_names):] += '|' + used_names
+                    residualizer_vars[:len(used_names)] += '|' + used_names
                 coef_names_array.append(residualizer_vars)
 
             used_names = np.concatenate(coef_names_array)
@@ -631,7 +630,7 @@ class QTLmapper:
 
 
 def main(chunk_id, masterlist_path, non_nan_mask_path, phenotype_matrix_path,
-         samples_order_path, plink_prefix, metadata_path, covars, mode, include_ct, use_residualizer):
+         samples_order_path, plink_prefix, metadata_path, covars_path, mode, include_ct, use_residualizer):
     t = time.perf_counter()
     print('Processing started')
     # ---- Read data for specific region only -----
@@ -642,7 +641,7 @@ def main(chunk_id, masterlist_path, non_nan_mask_path, phenotype_matrix_path,
         plink_prefix=plink_prefix,
         samples_metadata=metadata_path,
         valid_dhs=non_nan_mask_path,
-        covars_path=covars,
+        covars_path=covars_path,
         cond_num_tr=100,
         include_ct=include_ct,
         mode=mode
@@ -677,7 +676,7 @@ if __name__ == '__main__':
                         help='Path to file with columns identificators (sample_ids) of phenotype matrix')
     parser.add_argument('plink_prefix', help='Plink prefix to read file with plink_pandas package')
     parser.add_argument('outpath', help='Path to fasta file with SNPs coded as IUPAC symbols')
-    parser.add_argument('--covariates_path', help='Path to tsv file with additional covariates.'
+    parser.add_argument('--covariates', help='Path to tsv file with additional covariates.'
                                                   'Should have the following columns: ag_id, PC1, PC2, ...',
                         default=None)
     parser.add_argument('--mode', help='Specify to choose type of caQTL analysis: G, G_by_C or Null. '
@@ -708,7 +707,7 @@ if __name__ == '__main__':
         plink_prefix=args.plink_prefix,
         mode=args.mode,
         metadata_path=args.metadata,
-        covars=args.covariates_path,
+        covars_path=args.covariates,
         include_ct=args.include_ct,
         use_residualizer=args.use_resiudalizer
     )
