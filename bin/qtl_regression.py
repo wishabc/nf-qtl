@@ -40,12 +40,15 @@ def remove_redundant_columns(matrix):
     return matrix[:, cols_mask], cols_mask
 
 
+def add_bonf(array):
+    return np.maximum(array  - np.log10(array.shape[0]), 0)
+
 def add_bonf_correction(df, suf='', overall=True):
     if overall:
-        df[f'log10_qvalue{suf}'] = np.maximum(df[f'log10_f_pval{suf}']  - np.log10(len(df.index)), 0)
+        return ad
     else:
-        df = df.groupby('chunk_id').apply(
-            lambda x: add_bonf_correction(x, suf=suf, overall=True)
+        df[f'log10_qval{suf}'] = df.groupby('chunk_id')[f'log10_f_pval{suf}'].apply(
+            lambda x: add_bonf(x.to_numpy())
             )
     return df
 
@@ -354,10 +357,10 @@ class QTLPreprocessing:
             else:    
                 additional_covs = pd.read_table(
                     self.covars_path
-                ).set_index('ag_id').loc[self.samples_order].to_numpy()
+                ).set_index('ag_id').loc[self.samples_order].to_numpy().T
 
             covars.append(self.reformat_samples(
-                additional_covs.T, mode='mean').T)
+                additional_covs, mode='mean').T)
 
         if len(covars) > 0:
             covars = np.concatenate(covars)
