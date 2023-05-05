@@ -55,6 +55,7 @@ class QTLPreprocessing:
         self.plink_prefix = plink_prefix
         self.cond_num_tr = cond_num_tr
         self.valid_dhs = valid_dhs
+        self.quiet = False
         # path to DataFrame with columns ag_id PC1 PC2 ...
         self.covars_path = covars_path
         self.include_ct = include_ct
@@ -84,6 +85,7 @@ class QTLPreprocessing:
             ct_names=self.ct_names,
             cond_num_tr=self.cond_num_tr,
             include_ct=self.include_ct,
+            quiet=self.quiet
             **kwargs
         )
 
@@ -245,7 +247,8 @@ class QTLPreprocessing:
         self.bed_by_sample = self.bed_by_sample[testable_snps, :]  # [SNPs x indivs]
         self.snps_per_dhs = self.snps_per_dhs[:, testable_snps]  # [DHS x SNPs] boolean matrix
         self.valid_samples = self.valid_samples[testable_snps, :]
-        print(f"SNPxDHS pairs. Before: {before_n}, after: {self.snps_per_dhs.sum()}")
+        if not self.quiet:
+            print(f"SNPxDHS pairs. Before: {before_n}, after: {self.snps_per_dhs.sum()}")
         self.bim = self.bim.iloc[testable_snps, :].reset_index(drop=True)
 
     def find_snps_per_dhs(self):
@@ -402,7 +405,7 @@ class QTLmapper:
     def __init__(self, phenotype_matrix, snps_per_dhs,
                  genotype_matrix, samples_per_snps, residualizers,
                  snps_data, dhs_data, mode,
-                 cond_num_tr=100, ct_data=None, ct_names=None,
+                 cond_num_tr=100, ct_data=None, ct_names=None, quiet=False,
                  use_statsmodels=False, use_residualizer=True, include_ct=False):
 
         self.phenotype_matrix = phenotype_matrix
@@ -415,6 +418,8 @@ class QTLmapper:
         self.snps_data = snps_data
         self.dhs_data = dhs_data
         self.include_ct = include_ct
+
+        self.quiet = quiet
 
         self.mode = mode
         self.ct_data = ct_data
@@ -580,7 +585,8 @@ class QTLmapper:
     def map_qtl(self):
         stats_res = []
         coefs_res = []
-        for dhs_idx, snps_indices in enumerate(tqdm(self.snps_per_phenotype)):
+        iterable = self.snps_per_phenotype if self.quiet else tqdm(self.snps_per_phenotype) 
+        for dhs_idx, snps_indices in enumerate(iterable):
             # sub-setting matrices
             phenotype = np.squeeze(self.phenotype_matrix[dhs_idx, :])
             genotypes = self.genotype_matrix[snps_indices, :]
