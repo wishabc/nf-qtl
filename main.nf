@@ -17,8 +17,8 @@ process extract_gc_content {
 	faidx -i nucleotide -b ${params.index_file} ${params.genome_fasta} \
 		| awk -v OFS="\t" 'NR>1 { total =\$4+\$5+\$6+\$7+\$8; cg=\$6+\$7; print \$1, \$2-1, \$3,total, cg, cg/total;  }' \
 		| bedmap --delim "\t" --echo --bases-uniq - ${params.mappable_file} \
-		| paste - <(cut -f4,9 ${params.index_file}) \
-	| bgzip -c > ${gc_content_path}
+		| paste - <( grep -v '^#' ${params.index_file} | cut -f4,9 ) \
+		| bgzip -c > ${gc_content_path}
 	"""
 }
 
