@@ -36,17 +36,6 @@ def main(raw_tag_counts, regions_annotations):
     #normalized_tag_counts.dropna(axis='rows', inplace=True)
     non_nan_mask = np.isfinite(normalized_tag_counts).any(axis=1)
     return normalized_tag_counts[non_nan_mask, :], non_nan_mask
-    ### do I really need it?
-    
-    #df = regions_annotations.reset_index()[["#chr", "mid", "end", "region_id"]].join(normalized_tag_counts, on="region_id", how="right")
-    #df.sort_values(by = ["chr", "mid"], inplace=True)
-
-    # Rename columns for compatibility with TensorQTL
-    #df.rename(columns={"chr": "#chr", "mid": "start", "region_id": "phenotype_id"}, inplace=True)
-    #df["end"] = df["start"] + 1
-
-
-    #df.to_csv(sys.stdout, header=True, index=False, sep="\t", float_format="%0.4f")
 
 
 if __name__ == '__main__':

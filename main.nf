@@ -160,8 +160,12 @@ process merge_files {
 	"""
 }
 
+workflow extractGC {
+	extract_gc_content()
+}
+
 workflow caqtlCalling {
-	data = extract_gc_content() | gc_normalize_count_matrix
+	data = extractGC() | gc_normalize_count_matrix
 	plink_files = make_plink()
 	genome_chunks = create_genome_chunks() | flatMap(n -> n.split())
 	qtl_regression(genome_chunks, data, plink_files) //| collectFile(
@@ -170,21 +174,6 @@ workflow caqtlCalling {
 	// 	skip: 1,
 	// 	keepHeader: true
 	// )
-}
-
-workflow test {
-	genome_chunks = create_genome_chunks() | flatMap(n -> n.split())
-	modes = Channel.of(params.modes.split(','))
-	count_matrix = Channel.of(tuple(
-		file("/net/seq/data2/projects/sabramov/ENCODE4/caqtl-analysis/output/matrix_counts.hdf5"),
-		file("/net/seq/data2/projects/sabramov/ENCODE4/caqtl-analysis/output/matrix_counts.mask.txt")
-		))
-	plink_files = Channel.of("/net/seq/data2/projects/sabramov/ENCODE4/caqtl-analysis/output/plink/plink*")
-		.map(it -> file(it)).collect(sort: true, flat: true)
-
-	qtl_regression(genome_chunks, count_matrix, plink_files, modes)
-		| groupTuple(by: 0)
-		| merge_files
 }
 
 workflow mergeFiles {
@@ -206,90 +195,8 @@ workflow mergeFiles {
 
 	b = res_in.join(cof_in).map(it -> tuple('interaction', it[1], it[2]))
 	merge_files(a.concat(b).groupTuple())
-
-
-
 }
 
 workflow {
 	caqtlCalling()
 }
-
-// process qtl_by_region {
-// 	tag "${region}"    
-// 	label "gpu"
-
-//     conda '/home/jvierstra/.local/miniconda3/envs/py3.8_tensorqtl'
-
-//     publishDir params.outdir + '/nominal', mode: 'symlink', pattern: '*.parquet'
-
-// 	input: 
-// 	set file(count_matrix), file(count_matrix_index) from NORMED_COUNTS_FILES
-// 	each region from GENOME_CHUNKS.flatMap{ it.split() }
-// 	file '*' from PLINK_FILES.collect()
-
-// 	output:
-// 	file "*.txt.gz" into QTL_EMPIRICAL
-// 	file "*.parquet" into QTL_PAIRS_NOMINAL
-
-// 	script:
-// 	"""
-// 	qtl.py plink ${count_matrix} plink.eigenvec ${region}
-// 	"""
-// }
-
-// process merge_permutations {
-// 	executor 'slurm'
-	
-//     conda '/home/jvierstra/.local/miniconda3/envs/py3.8_tensorqtl'
-
-// 	module "R/4.0.5"
-
-// 	publishDir params.outdir + '/qtl', mode: 'symlink'
-
-// 	input:
-// 	file '*' from QTL_EMPIRICAL.collect()
-
-// 	output:
-// 	file 'all.phenotypes.txt.gz' into QTL_EMPIRICAL_SIGNIF
-
-// 	script:
-// 	"""
-// 	find \$PWD -name "chr*.txt.gz" > filelist.txt
-
-// 	merge_permutation_results.py filelist.txt all
-// 	"""
-// }
-
-// QTL_PAIRS_NOMINAL
-// 	.map{ it -> 
-// 		def names = (it.name.split(":")) 
-// 		tuple(names[0], it)
-// 	}
-// 	.groupTuple(by: 0)
-// 	.set{ QTL_PAIRS_NOMINAL_BY_CHR }
-
-// process filter_nominal_pairs {
-// 	tag "${chr}"
-
-// 	executor 'slurm'
-
-//     conda '/home/jvierstra/.local/miniconda3/envs/py3.8_tensorqtl'
-
-
-// 	publishDir params.outdir + '/qtl', mode: 'copy'
-
-// 	input:
-// 	set val(chr), file('*') from QTL_PAIRS_NOMINAL_BY_CHR 
-// 	file phenotypes_file from QTL_EMPIRICAL_SIGNIF
-
-// 	output:
-// 	file "${chr}.signifpairs.txt.gz" into QTL_PAIRS_SIGNIF_BY_CHR
-
-// 	script:
-// 	"""
-// 	ls *.parquet > filelist.txt
-
-// 	merge_nominal_results.py --fdr 0.05 ${phenotypes_file} filelist.txt ${chr}.signifpairs.txt.gz
-// 	"""
-// }
