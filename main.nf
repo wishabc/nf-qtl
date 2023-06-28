@@ -7,6 +7,7 @@ params.conda = "/home/sabramov/miniconda3/envs/babachi"
 process extract_gc_content {
 	conda params.conda
 	publishDir params.outdir
+	scratch true
 
 	output:
 		path gc_content_path
@@ -14,11 +15,18 @@ process extract_gc_content {
 	script:
 	gc_content_path = 'regions_gc_annotated.bed.gz'
 	"""
-	faidx -i nucleotide -b ${params.index_file} ${params.genome_fasta} \
+	# write header
+	echo '#chr	start	end	n_bases	n_gc	percent_gc	n_mappable	region_id	mid' > result.bed
+	
+	awk 'NR>1' ${params.index_file} > noheader.bed
+	
+	faidx -i nucleotide -b noheader.bed ${params.genome_fasta} \
 		| awk -v OFS="\t" 'NR>1 { total =\$4+\$5+\$6+\$7+\$8; cg=\$6+\$7; print \$1, \$2-1, \$3,total, cg, cg/total;  }' \
-		| bedmap --delim "\t" --echo --bases-uniq - ${params.mappable_file} \
-		| paste - <( grep -v '^#' ${params.index_file} | cut -f4,9 ) \
-		| bgzip -c > ${gc_content_path}
+		| paste - <( cut -f4,9 noheader.bed ) \
+		| bedmap --delim "\t" --echo \
+			--bases-uniq - ${params.mappable_file} >> result.bed
+		
+	cat result.bed | bgzip -c > ${gc_content_path}
 	"""
 }
 
