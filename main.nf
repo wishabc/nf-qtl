@@ -16,7 +16,7 @@ process extract_gc_content {
 	gc_content_path = 'regions_gc_annotated.bed.gz'
 	"""
 	# write header
-	echo '#chr	start	end	n_bases	n_gc	percent_gc	n_mappable	region_id	mid' > result.bed
+	echo '#chr	start	end	n_bases	n_gc	percent_gc	region_id	mid	n_mappable' > result.bed
 	
 	awk 'NR>1' ${params.index_file} > noheader.bed
 	

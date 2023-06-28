@@ -39,8 +39,7 @@ def main(raw_tag_counts, regions_annotations):
 
 
 if __name__ == '__main__':
-    regions_annotations = pd.read_table(sys.argv[1], header=None,
-            names=["#chr", "start", "end", "n_bases", "n_gc", "percent_gc", "n_mappable", "region_id", "mid"])
+    regions_annotations = pd.read_table(sys.argv[1])
     regions_annotations.set_index("region_id", inplace=True)
 
     raw_tag_counts = np.load(sys.argv[2])
