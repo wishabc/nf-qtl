@@ -26,7 +26,7 @@ process extract_gc_content {
 		| bedmap --delim "\t" --echo \
 			--bases-uniq - ${params.mappable_file} >> result.bed
 		
-	cat result.bed | bgzip -c > ${gc_content_path}
+	bgzip -c result.bed > ${gc_content_path}
 	"""
 }
 
