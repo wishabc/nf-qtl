@@ -60,6 +60,7 @@ total = 0
 
 # signif_df = pd.concat(signif_df, axis=0)
 signif_df = pd.read_table(args.nominal_results)
+print("Succesfully read nominal pvalues", signif_df.shape, flush=True)
 signif_df = signif_df[signif_df["phenotype_id"].isin(phenotype_ids)]
 signif_df['threshold_nominal_p'] = signif_df['phenotype_id'].map(threshold_dict)
 signif_df.query('pval_nominal < threshold_nominal_p', inplace=True)
