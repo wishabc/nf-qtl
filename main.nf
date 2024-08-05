@@ -136,7 +136,7 @@ process qtl_by_region {
 	"""
 	qtl.py plink \
         ${count_matrix} \
-        plink.eigenvec \
+        ${prefix}.eigenvec \
         ${region}
 	"""
 }
