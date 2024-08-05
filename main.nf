@@ -196,6 +196,7 @@ workflow {
     params.plink_prefix = "/net/seq/data2/projects/sabramov/regulotyping-phaseI-II/imputed_genotypes/chroms1-22.phaseI+II"
     params.count_matrix_file = '/net/seq/data2/projects/sabramov/regulotyping-phaseI/rnaseq-eqtls/phaseI.expression.bed.gz'
     plink_files = Channel.fromPath("${params.plink_prefix}*")
+        | collect()
 
     count_matrix = Channel.of(params.count_matrix_file)
         | map(it -> tuple(file(it), file("${it}.tbi")) )
@@ -204,7 +205,6 @@ workflow {
         | create_genome_chunks
         | flatMap(n -> n.split())
         | combine(count_matrix)
-        | view()
 
     qtl_data = qtl_by_region(count_matrix_w_chunks, plink_files)
 
