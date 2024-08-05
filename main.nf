@@ -203,16 +203,13 @@ workflow {
         | create_genome_chunks
         | combine(count_matrix)
 
-    data = qtl_by_region(count_matrix_w_chunks, plink_files)
+    qtl_data = qtl_by_region(count_matrix_w_chunks, plink_files)
 
-    qtl = data.qtl_nominal
-        | map{ it -> 
-            def names = (it.name.split(":")) 
-            tuple(names[0], it)
-        }
+    qtl = qtl_data.qtl_nominal
+        | map(it -> tuple(it.name.split(":")[0], it))
         | groupTuple(by: 0)
     
-    phenotypes = data.qtl_empirical
+    phenotypes = qtl_data.qtl_empirical
         | collect()
         | merge_permutations
     
