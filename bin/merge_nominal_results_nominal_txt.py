@@ -25,7 +25,7 @@ args = parser.parse_args()
 #------------------------------------------------------------------------------
 
 print('['+datetime.now().strftime("%b %d %H:%M:%S")+'] Annotating permutation results (ePhenotypes)', flush=True)
-phenotype_df = pd.read_csv(args.permutation_results, sep='\t', index_col=0, header=0)
+phenotype_df = pd.read_table(args.permutation_results).set_index('gene_id')
 
 
 #------------------------------------------------------------------------------
@@ -35,7 +35,7 @@ phenotype_df = pd.read_csv(args.permutation_results, sep='\t', index_col=0, head
 print('['+datetime.now().strftime("%b %d %H:%M:%S")+'] Filtering significant variant-phenotype pairs', flush=True)
 
 # eGenes (apply FDR threshold)
-threshold_df = phenotype_df.loc[phenotype_df['qval']<=args.fdr, ['pval_nominal_threshold', 'pval_nominal', 'pval_beta']].copy()
+threshold_df = phenotype_df.query(f'qval <= {args.fdr}')[['pval_nominal_threshold', 'pval_nominal', 'pval_beta']].copy()
 threshold_df.rename(columns={'pval_nominal': 'min_pval_nominal'}, inplace=True)
 phenotype_ids = set(threshold_df.index)
 threshold_dict = threshold_df['pval_nominal_threshold'].to_dict()
@@ -61,8 +61,8 @@ total = 0
 # signif_df = pd.concat(signif_df, axis=0)
 signif_df = pd.read_table(args.nominal_results)
 print("Succesfully read nominal pvalues", signif_df.shape, flush=True)
-signif_df = signif_df[signif_df["phenotype_id"].isin(phenotype_ids)]
-signif_df['threshold_nominal_p'] = signif_df['phenotype_id'].map(threshold_dict)
+signif_df = signif_df[signif_df["gene_id"].isin(phenotype_ids)]
+signif_df['threshold_nominal_p'] = signif_df['gene_id'].map(threshold_dict)
 signif_df.query('pval_nominal < threshold_nominal_p', inplace=True)
 
 print(' * Numbers variant-phenotype pairs tested: {}'.format(total))
