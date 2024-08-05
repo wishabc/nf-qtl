@@ -52,7 +52,7 @@ phenotype_sample_ids = phenotype_df.columns
 phenotype_indiv_ids = phenotype_df.columns.str.split('>').str[0]
 # phenotype_celltypes =  phenotype_df.columns.str.split('>').str[1]
 phenotype_sample_df = pd.DataFrame({'sample_id': phenotype_sample_ids, 'indiv_id': phenotype_indiv_ids, 'celltype': ['CD3+'] * len(phenotype_sample_ids)})
-phenotype_pos_df['tss'] = phenotype_pos_df.eval('(end + start) / 2')
+phenotype_pos_df['tss'] = phenotype_pos_df['pos']
 select_phenotypes = (phenotype_pos_df['chr']==region_chrom) & (phenotype_pos_df['tss']>region_start) & (phenotype_pos_df['tss']<=region_end)
 phenotype_df = phenotype_df[select_phenotypes]
 phenotype_pos_df = phenotype_pos_df[select_phenotypes]
