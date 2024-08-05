@@ -197,7 +197,7 @@ workflow {
     plink_files = Channel.fromPath("${params.plink_prefix}*")
 
     count_matrix = Channel.of(params.count_matrix_file)
-        | map(it -> file(it), file("${it}.tbi") )
+        | map(it -> tuple(file(it), file("${it}.tbi")) )
 
     count_matrix_w_chunks = count_matrix 
         | create_genome_chunks
