@@ -98,17 +98,17 @@ process create_genome_chunks {
 
 	script:
 	"""
-	zcat ${count_matrix} | cut -f1-3 | sort-bed - > regions.bed
+	zcat ${count_matrix} | tail -n+2 | cut -f1-3 | sort-bed - > regions.bed
 
 	cat "${params.genome_chrom_sizes_file}" \
-  	| awk -v step=${params.chunksize} -v OFS="\\t" \
-		'{ \
-			for(i=step; i<=\$2; i+=step) { \
-				print \$1, i-step+1, i; \
-			} \
-			print \$1, i-step+1, \$2; \
-		}' \
-	| sort-bed - > chunks.bed
+        | awk -v step=${params.chunksize} -v OFS="\\t" \
+            '{ \
+                for(i=step; i<=\$2; i+=step) { \
+                    print \$1, i-step+1, i; \
+                } \
+                print \$1, i-step+1, \$2; \
+            }' \
+        | sort-bed - > chunks.bed
 
 	bedops -e 1 chunks.bed regions.bed \
         | awk -v OFS="\\t" '{ print \$1":"\$2"-"\$3; }'
