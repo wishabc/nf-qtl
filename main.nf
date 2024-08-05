@@ -93,7 +93,7 @@ process create_genome_chunks {
 	    tuple path(count_matrix), path(count_matrix_index) 
 
 	output:
-	stdout into GENOME_CHUNKS
+	    stdout // into GENOME_CHUNKS
 
 	script:
 	"""
@@ -165,7 +165,7 @@ process merge_permutations {
 }
 
 process filter_nominal_pairs {
-	tag "${chr}"
+	tag "${chrom}"
 
 	executor 'slurm'
 
@@ -175,17 +175,18 @@ process filter_nominal_pairs {
 	publishDir params.outdir + '/qtl', mode: 'copy'
 
 	input:
-	set val(chr), file('*') // from QTL_PAIRS_NOMINAL_BY_CHR 
-	file phenotypes_file // from QTL_EMPIRICAL_SIGNIF
+	    tuple val(chrom), file('*') // from QTL_PAIRS_NOMINAL_BY_CHR 
+	    path phenotypes_file // from QTL_EMPIRICAL_SIGNIF
 
 	output:
-	file "${chr}.signifpairs.txt.gz" into QTL_PAIRS_SIGNIF_BY_CHR
+	    path name // into QTL_PAIRS_SIGNIF_BY_CHR
 
 	script:
+    name = "${chrom}.signifpairs.txt.gz"
 	"""
 	ls *.parquet > filelist.txt
 
-	merge_nominal_results.py --fdr 0.05 ${phenotypes_file} filelist.txt ${chr}.signifpairs.txt.gz
+	merge_nominal_results.py --fdr 0.05 ${phenotypes_file} filelist.txt ${name}
 	"""
 }
 
@@ -194,8 +195,9 @@ workflow {
     params.plink_prefix = "/net/seq/data2/projects/sabramov/regulotyping-phaseI-II/imputed_genotypes/chroms1-22.phaseI+II"
     params.count_matrix_file = '/net/seq/data2/projects/sabramov/regulotyping-phaseI/rnaseq-eqtls/phaseI.expression.bed.gz'
     plink_files = Channel.fromPath("${params.plink_prefix}*")
+
     count_matrix = Channel.of(params.count_matrix_file)
-        | map( it -> file(it), file("${it}.tbi") )
+        | map(it -> file(it), file("${it}.tbi") )
 
     count_matrix_w_chunks = count_matrix 
         | create_genome_chunks
