@@ -65,7 +65,7 @@ signif_df = signif_df[signif_df["gene_id"].isin(phenotype_ids)]
 signif_df['threshold_nominal_p'] = signif_df['gene_id'].map(threshold_dict)
 signif_df.query('pval_nominal < threshold_nominal_p', inplace=True)
 
-print(' * Numbers variant-phenotype pairs tested: {}'.format(total))
+print(' * Numbers variant-phenotype pairs tested: {}'.format(signif_df[['gene_id', 'variant_id']].drop_duplicates().shape[0]))
 print(' * QTLs @ FDR {}: {}'.format(args.fdr, signif_df.shape[0]))
 
 with gzip.open(args.outfile, 'wt') as f:
