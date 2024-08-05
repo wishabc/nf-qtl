@@ -133,7 +133,7 @@ process qtl_by_region {
 	    path "*.parquet", emit: qtl_nominal
 
 	script:
-    prefix = "${plink_files[0].simpleName}"
+    prefix = "${plink_files[0].baseName}"
 	"""
 	qtl.py plink \
         ${count_matrix} \
@@ -204,6 +204,7 @@ workflow {
         | create_genome_chunks
         | flatMap(n -> n.split())
         | combine(count_matrix)
+        | view()
 
     qtl_data = qtl_by_region(count_matrix_w_chunks, plink_files)
 
