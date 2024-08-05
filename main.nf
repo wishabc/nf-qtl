@@ -1,5 +1,5 @@
 #!/usr/bin/env nextflow
-
+nextflow.enable.dsl = 2
 params.vcf_file='/net/seq/data/projects/regulotyping/genotypes/genotype_panel/imputed_genotypes/chroms1-22.phaseI+II.annotated.ancestral.vcf.gz'
 // params.count_matrix_file='/net/seq/data/projects/regulotyping/dnase/by_celltype_donor/h.CD3+/index/tag_counts/matrix_tagcounts.txt.gz'
 
