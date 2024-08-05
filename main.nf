@@ -88,6 +88,7 @@ params.outdir='output'
 process create_genome_chunks {
 	executor 'local'
 	memory '4G'
+    conda params.conda
 
 	input:
 	    tuple path(count_matrix), path(count_matrix_index) 
