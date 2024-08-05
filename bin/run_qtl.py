@@ -69,6 +69,7 @@ bed = 2 - bed # flip alleles!!!!
 bed[np.isnan(bed)] = -1  # convert missing (NaN) to -1 for int8
 bed = bed.astype(np.int8, copy=False)
 
+print("Finished reading bed file!", flush=True)
 # Filter chromosomes
 #m = bim['chrom'].isin(include_chrs).values
 
