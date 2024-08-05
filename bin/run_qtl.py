@@ -64,7 +64,7 @@ print("Done!")
 print("Scanning genotype data...")
 
 bim, fam, bed = read_plink(plink_prefix_path, verbose=True)
-
+bim['chrom'] = 'chr' + bim['chrom'].astype(str)
 bed = 2 - bed # flip alleles!!!!
 bed[np.isnan(bed)] = -1  # convert missing (NaN) to -1 for int8
 bed = bed.astype(np.int8, copy=False)
