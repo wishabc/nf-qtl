@@ -202,7 +202,7 @@ workflow {
 
     count_matrix_w_chunks = count_matrix 
         | create_genome_chunks
-        | flatten()
+        | flatMap(n -> n.split())
         | combine(count_matrix)
 
     qtl_data = qtl_by_region(count_matrix_w_chunks, plink_files)
