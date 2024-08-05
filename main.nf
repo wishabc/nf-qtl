@@ -209,8 +209,7 @@ workflow {
         | map(it -> tuple(it.name.split(":")[0], it))
         | groupTuple(by: 0)
     
-    phenotypes = qtl_data.qtl_empirical
-        | collect()
+    phenotypes = qtl_data.qtl_empirical.collect()
         | merge_permutations
     
     filter_nominal_pairs(qtl, phenotypes)
