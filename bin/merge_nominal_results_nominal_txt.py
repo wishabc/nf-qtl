@@ -40,25 +40,6 @@ threshold_df.rename(columns={'pval_nominal': 'min_pval_nominal'}, inplace=True)
 phenotype_ids = set(threshold_df.index)
 threshold_dict = threshold_df['pval_nominal_threshold'].to_dict()
 
-# process by chunks to reduce memory usage
-signif_df = []
-mask = []
-total = 0
-
-# with open(args.nominal_results) as f:
-#     parquet_files = [line.strip() for line in f]
-
-# print(' * Filtering and merging {} parquet files...'.format(len(parquet_files)))
-
-# for filepath in parquet_files:
-
-#     chunk_df = pd.read_parquet(filepath)
-#     chunk_df = chunk_df[chunk_df["phenotype_id"].isin(phenotype_ids)]
-#     m = chunk_df['pval_nominal']<chunk_df['phenotype_id'].apply(lambda x: threshold_dict[x])
-#     signif_df.append(chunk_df[m])
-#     total += chunk_df.shape[0]
-
-# signif_df = pd.concat(signif_df, axis=0)
 signif_df = pd.read_table(args.nominal_results)
 print('['+datetime.now().strftime("%b %d %H:%M:%S")+']', 'Succesfully read nominal pvalues', signif_df.shape, flush=True)
 signif_df = signif_df[signif_df["gene_id"].isin(phenotype_ids)]

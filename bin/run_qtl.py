@@ -77,7 +77,7 @@ windowed_region_start = (region_start - window)
 windowed_region_end = (region_end + window)
 
 m = (bim['chrom'].isin([region_chrom]).values) & (bim['pos']>windowed_region_start) & (bim['pos']<=windowed_region_end)
-
+print(bim.head())
 bed = bed[m,:]
 bim = bim[m]
 bim.reset_index(drop=True, inplace=True)
@@ -101,7 +101,12 @@ i = phenotype_sample_df['indiv_id'].isin(fam_sample_ids)
 select_phenotypes_id = phenotype_sample_df[i]['sample_id']
 select_indivs_id = phenotype_sample_df[i]['indiv_id']
 
-interaction_df = phenotype_sample_df[i].pivot_table(columns = 'celltype', index='sample_id', aggfunc=lambda x: 1, fill_value=0)
+interaction_df = phenotype_sample_df[i].pivot_table(
+    columns = 'celltype',
+    index='sample_id',
+    aggfunc=lambda x: 1,
+    fill_value=0
+)
 interaction_df = interaction_df.loc[phenotype_df.columns]
 
 if len(interaction_df.columns) < 2:
@@ -129,9 +134,10 @@ print("Done!")
 
 print("Running emperical permutations...")
 
-cis_empirical = cis.map_cis(genotype_df, variant_df, phenotype_df, phenotype_pos_df,
-                     covariates_df=covariates_df, window=window, 
-                     maf_threshold=maf_threshold, nperm=permuations)
+cis_empirical = cis.map_cis(
+    genotype_df, variant_df, phenotype_df, phenotype_pos_df,
+    covariates_df=covariates_df, window=window, 
+    maf_threshold=maf_threshold, nperm=permuations)
 
 out_file = os.path.join(output_dir, prefix +'.cis_qtl.' + region_chrom + '.txt.gz')
 
