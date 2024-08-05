@@ -135,7 +135,7 @@ process qtl_by_region {
 	script:
     prefix = "${plink_files[0].baseName}"
 	"""
-	qtl.py plink \
+	$moduleDir/bin/run_qtl.py plink \
         ${count_matrix} \
         ${prefix}.eigenvec \
         ${region}
