@@ -168,6 +168,8 @@ process filter_nominal_pairs {
 
 	executor 'slurm'
 
+    publishDir "${params.outdir}/qtl"
+
     conda params.conda
 
 	input:
