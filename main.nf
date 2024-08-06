@@ -11,7 +11,7 @@ params.genome_chrom_sizes_file = '/net/seq/data/genomes/human/GRCh38/noalts/GRCh
 params.genome_mappable_file = '/net/seq/data/genomes/human/GRCh38/noalts/GRCh38_no_alts.K76.mappable_only.bed'
 params.chunksize=25000000 //be careful not set this too small or the qtl.py script gives a cryptic error
 //params.conda = '/home/jvierstra/.local/miniconda3/envs/py3.8_tensorqtl'
-params.conda = '/home/sabramov/miniconda3/envs/tensorflow'
+params.conda = '/home/sabramov/miniconda3/envs/tensorqtl'
 
 params.outdir='output'
 
