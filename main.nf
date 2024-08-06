@@ -147,7 +147,7 @@ process merge_permutations {
 	
     conda params.conda
 
-	publishDir params.outdir + '/qtl', mode: 'symlink'
+	publishDir "${params.outdir}/qtl"
 
 	input:
 	    path qtl_pairs
