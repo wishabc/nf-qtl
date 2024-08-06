@@ -178,7 +178,7 @@ process filter_nominal_pairs {
 	    path phenotypes_file // from QTL_EMPIRICAL_SIGNIF
 
 	output:
-	    path name // into QTL_PAIRS_SIGNIF_BY_CHR
+	    tuple val(chrom), path(name) // into QTL_PAIRS_SIGNIF_BY_CHR
 
 	script:
     name = "${chrom}.signifpairs.txt.gz"
@@ -187,6 +187,10 @@ process filter_nominal_pairs {
 
 	merge_nominal_results.py --fdr 0.05 ${phenotypes_file} filelist.txt ${name}
 	"""
+}
+
+process merge_pairs {
+    
 }
 
 
