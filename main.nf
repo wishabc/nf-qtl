@@ -137,7 +137,7 @@ process qtl_by_region {
 	"""
 	$moduleDir/bin/run_qtl.py ${prefix} \
         ${count_matrix} \
-        ${prefix}.eigenvec \
+        ${params.covariates_path} \
         ${region}
 	"""
 }
@@ -190,7 +190,9 @@ process filter_nominal_pairs {
 
 
 workflow {
-    params.plink_prefix = "/net/seq/data2/projects/sabramov/regulotyping-phaseI-II/imputed_genotypes/chroms1-22.phaseI+II"
+    params.covariates_path = '/net/seq/data2/projects/sabramov/regulotyping-phaseI-II/imputed_genotypes/chroms1-22.phaseI+II.annotated.eigenvec'
+
+    params.plink_prefix = "/net/seq/data2/projects/sabramov/regulotyping-phaseI-II/imputed_genotypes/chroms1-22.phaseI+II.annotated"
     params.count_matrix_file = '/net/seq/data2/projects/sabramov/regulotyping-phaseI/rnaseq-eqtls/phaseI.expression.bed.gz'
     plink_files = Channel.fromPath("${params.plink_prefix}*").collect()
 

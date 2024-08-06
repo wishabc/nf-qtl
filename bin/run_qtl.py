@@ -53,7 +53,8 @@ phenotype_indiv_ids = phenotype_df.columns.str.split('>').str[0]
 # phenotype_celltypes =  phenotype_df.columns.str.split('>').str[1]
 phenotype_sample_df = pd.DataFrame({'sample_id': phenotype_sample_ids, 'indiv_id': phenotype_indiv_ids, 'celltype': ['CD3+'] * len(phenotype_sample_ids)})
 phenotype_pos_df['tss'] = phenotype_pos_df['pos']
-select_phenotypes = (phenotype_pos_df['chr']==region_chrom) & (phenotype_pos_df['tss']>region_start) & (phenotype_pos_df['tss']<=region_end)
+select_phenotypes = phenotype_pos_df.eval(f'chr == "{region_chrom}" & tss > {region_start} & tss <= {region_end}')
+
 phenotype_df = phenotype_df[select_phenotypes]
 phenotype_pos_df = phenotype_pos_df[select_phenotypes]
 
@@ -76,8 +77,10 @@ print("Finished reading bed file!", flush=True)
 windowed_region_start = (region_start - window)
 windowed_region_end = (region_end + window)
 
-m = (bim['chrom'].isin([region_chrom]).values) & (bim['pos']>windowed_region_start) & (bim['pos']<=windowed_region_end)
-print(bim.head())
+m = (bim['chrom'].isin([region_chrom]).values) \
+    & (bim['pos'] > windowed_region_start) \
+    & (bim['pos'] <= windowed_region_end)
+
 bed = bed[m,:]
 bim = bim[m]
 bim.reset_index(drop=True, inplace=True)
