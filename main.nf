@@ -147,8 +147,6 @@ process merge_permutations {
 	
     conda params.conda
 
-	module "R/4.0.5"
-
 	publishDir params.outdir + '/qtl', mode: 'symlink'
 
 	input:
