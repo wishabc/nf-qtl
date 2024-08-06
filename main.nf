@@ -170,9 +170,6 @@ process filter_nominal_pairs {
 
     conda params.conda
 
-
-	publishDir params.outdir + '/qtl', mode: 'copy'
-
 	input:
 	    tuple val(chrom), file('*') // from QTL_PAIRS_NOMINAL_BY_CHR 
 	    path phenotypes_file // from QTL_EMPIRICAL_SIGNIF
@@ -187,10 +184,6 @@ process filter_nominal_pairs {
 
 	merge_nominal_results.py --fdr 0.05 ${phenotypes_file} filelist.txt ${name}
 	"""
-}
-
-process merge_pairs {
-    
 }
 
 
@@ -210,7 +203,8 @@ workflow {
     qtl_data = qtl_by_region(count_matrix_w_chunks, plink_files)
 
     qtl = qtl_data.qtl_nominal
-        | map(it -> tuple(it.name.split(":")[0], it))
+        // | map(it -> tuple(it.name.split(":")[0], it))
+        | map(it -> tuple('all', it))
         | groupTuple(by: 0)
     
     phenotypes = qtl_data.qtl_empirical.collect()
